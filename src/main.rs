@@ -4,11 +4,9 @@ mod board;
 use board::Board;
 
 fn main() {
-    let b2 = Board::new(4, 4);
-    b2.print();
-
-    println!();
-    let new_board = b2.plant_mines(game::Difficulty::Medium);
-    new_board.print();
-    
+    let ref_board = Board::new(4, 4);
+    let player_board = ref_board.get_playerboard();
+    player_board.print(); // refboard should not be printable
+                          // maybe for the debugging purpose, we can print it
+                          // playerboard should be inferred from refboard
 }
