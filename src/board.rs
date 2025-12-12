@@ -6,9 +6,9 @@ const DEFAULT_SIZE: u8 = 3;
 
 pub struct Board<Tile> { // making Tile 1. a parameter 2. a trait
                          // depends on whether Board needs to interact with Tile in its implementation or not
-    xsize: u32, // horizontal size (grows to right)
-    ysize: u32, // vertical size (grows down)
-    board_map: HashMap<Coordinate, Tile>, // invariant: `board_map` stores precisely `xsize` * `ysize` entries
+    pub xsize: u32, // horizontal size (grows to right)
+    pub ysize: u32, // vertical size (grows down)
+    pub board_map: HashMap<Coordinate, Tile>, // invariant: `board_map` stores precisely `xsize` * `ysize` entries
                                                 // board_map.get(&Coordinate{ x, y }) should never return None
                                                 // so if it does
                                                 // .unwrap() -> crash 
@@ -26,24 +26,24 @@ pub enum PlayerTile {
 
 #[derive(Clone)]
 pub struct RefTile {
-    has_mine: bool,
-    status: TileStatus,
+    pub has_mine: bool,
+    pub status: TileStatus,
 }
 
 #[derive(Clone)]
-enum TileStatus {
+pub enum TileStatus {
     Hidden,
     Flagged,
     Revealed
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
-pub struct Coordinate { x: u32, y: u32 }
+pub struct Coordinate { pub x: u32, pub y: u32 }
 
-type RefBoard = Board<RefTile>;
+pub type RefBoard = Board<RefTile>;
 
 impl RefBoard {
-    fn default() -> Self {
+    pub fn default() -> Self {
         Board::new(DEFAULT_SIZE as u32, DEFAULT_SIZE as u32) // u8 -> u32 upcase (safe)
     }
 
@@ -65,7 +65,7 @@ impl RefBoard {
         }
     }
 
-    pub fn plant_mines(&self, d: Difficulty) -> RefBoard {
+    pub fn plant_mines(&self, d: &Difficulty) -> RefBoard {
         let size = self.xsize * self.ysize;
         let number_of_mines: f32 = size as f32 * { 
             match d {
