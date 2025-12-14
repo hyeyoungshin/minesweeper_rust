@@ -2,10 +2,11 @@ use std::collections::HashMap;
 use rand::Rng;
 use crate::game::Difficulty;
 
+
 const DEFAULT_SIZE: u8 = 3;
 
 pub struct Board<Tile> { // making Tile 1. a parameter 2. a trait
-                         // depends on whether Board needs to interact with Tile in its implementation or not
+                        // depends on whether Board needs to interact with Tile in its implementation or not
     pub xsize: u32, // horizontal size (grows to right)
     pub ysize: u32, // vertical size (grows down)
     pub board_map: HashMap<Coordinate, Tile>, // invariant: `board_map` stores precisely `xsize` * `ysize` entries
@@ -49,8 +50,8 @@ impl RefBoard {
 
     pub fn new(xsize: u32, ysize: u32) -> Self {
         let mut board_map = HashMap::new(); // mutate locally
-                                                                          // while keeping the functional style globally
-                                                                          // by generating a new `board_map` whenever a player makes a move 
+                                                                        // while keeping the functional style globally
+                                                                        // by generating a new `board_map` whenever a player makes a move 
 
         for x in 0..xsize {
             for y in 0..ysize {
@@ -137,19 +138,20 @@ impl RefBoard {
         for r_c in relative_coordinates {
             let potential_coordinate = (coordinate.x as i32 + r_c.0 , coordinate.y as i32 + r_c.1 ); // u32 as i32 is ok
             
-            if self.is_valid(&potential_coordinate) { // check if it's outside board boundaries 
-                                                      // if true, potential_coordinate.0 and potential_coordinate.1 is always positive
-                neighbors_coordinates.push(Coordinate{x: potential_coordinate.0 as u32, y: potential_coordinate.1 as u32}); // i32 to u32 ok???
+            if is_valid(self.xsize, self.ysize, &potential_coordinate) {
+                neighbors_coordinates.push(Coordinate{x: potential_coordinate.0 as u32, y: potential_coordinate.1 as u32});
             }   
         }
         
         neighbors_coordinates.len() as i8
     }
 
-    fn is_valid(&self, potential_coordinate: &(i32, i32)) -> bool {
-        potential_coordinate.0 >= 0 && potential_coordinate.0 < self.xsize as i32 && 
-        potential_coordinate.1 >= 0 && potential_coordinate.1 < self.ysize as i32
-    }
+    
+}
+
+fn is_valid(xsize: u32, ysize: u32, potential_coordinate: &(i32, i32)) -> bool {
+    potential_coordinate.0 >= 0 && potential_coordinate.0 < xsize as i32 && 
+    potential_coordinate.1 >= 0 && potential_coordinate.1 < ysize as i32
 }
 
 type PlayerBoard = Board<PlayerTile>;
@@ -170,3 +172,34 @@ impl PlayerBoard {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*; // bring all of the items belonging to the tests module’s parent into scope
+
+    #[test]
+    fn check_mines() {
+        let board = Board::new(5, 5);
+        let board_with_mines = board.plant_mines(&Difficulty::Easy); // in this example, does passing a reference to plant_mines 
+                                                                    // make sense?
+
+        // let mut count = 0;
+
+        // for (_, v) in &board_with_mines.board_map { // without & for loop takes ownership of board_with_mines.board_map
+        //     if v.has_mine  {count += 1;}
+        // }
+        // // without &, board_with_mines.board_map is now gone!
+
+
+        // better because
+        // 1. does not use a mutable counter
+        // 2. more concise and readable 
+        // 3. funtional style that Rustaceans prefer
+        let count = board_with_mines.board_map
+            .values()
+            .filter(|v| v.has_mine)
+            .count();
+
+        assert_eq!(count, 3);
+    }
+}
