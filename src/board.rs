@@ -197,7 +197,7 @@ mod tests {
         // 3. funtional style that Rustaceans prefer
         let count = board_with_mines.board_map
             .values()
-            .filter(|v| v.has_mine)
+            .filter(|t| t.has_mine)
             .count();
 
         assert_eq!(count, 3);
