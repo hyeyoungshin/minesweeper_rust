@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use rand::Rng;
 use crate::game::Difficulty;
 
@@ -76,21 +77,50 @@ impl RefBoard {
             }
         };
 
-        let number_of_mines: u32 = number_of_mines.floor() as u32;
+        let number_of_mines = number_of_mines.floor() as usize;
 
-        let mine_coordinates: Vec<Coordinate> = (0..number_of_mines)
-            .map(|_| {
-                let random_x = rand::thread_rng().gen_range(0..self.xsize);
-                let random_y = rand::thread_rng().gen_range(0..self.ysize);
-                Coordinate { x: random_x, y: random_y }
-            })
-            .collect(); 
+        // 3. HashSet (Makes most sense and idiomatic)
+        let mut mine_coordinates: HashSet<Coordinate> = HashSet::new();
+        let mut rng = rand::thread_rng();
+
+        while mine_coordinates.len() < number_of_mines as usize {
+            let coordinate = Coordinate {
+                x: rng.gen_range(0..self.xsize),
+                y: rng.gen_range(0..self.xsize),
+            };
+            mine_coordinates.insert(coordinate);
+
+        }
+        
+        // 1. My approach (erroneous)
+        // This approach introduced repeating coordinates for mines causing the check_mine test to fail indeterministically
+        // let mine_coordinates: Vec<Coordinate> = (0..number_of_mines)
+        //     .map(|_| {
+        //         let random_x = rand::thread_rng().gen_range(0..self.xsize);
+        //         let random_y = rand::thread_rng().gen_range(0..self.ysize);
+        //         Coordinate { x: random_x, y: random_y }
+        //     }) 
+        //     .collect(); 
+
+        // 2. shuffling (better for denser mines)
+        // use rand::seq::SliceRandom;
+
+        // let mut all_coordinates: Vec<Coordinate> = all_coordinates(self.xsize, self.ysize)
+        // all_coordinates.shuffle(&mut rand::thread_rng()); // shuffle inplace
+
+        // let mine_coordinates: Vec<Coordinate> = all_coordinates
+        //     .into_iter()
+        //     .take(number_of_mines)
+        //     .collect();
 
         let mut new_board_map: HashMap<Coordinate, RefTile> = HashMap::new();
         
         for coordinate in mine_coordinates {
             new_board_map.insert(coordinate, RefTile{has_mine: true, status: TileStatus::Hidden});
+            println!("mine coordinate is:{:?}", (coordinate.x, coordinate.y));
         }
+
+        println!("keys in board_map: {:?}", new_board_map.keys()); // 2 sometimes... why?
 
         for x in 0..self.xsize {
             for y in 0..self.ysize {
@@ -154,6 +184,12 @@ fn is_valid(xsize: u32, ysize: u32, potential_coordinate: &(i32, i32)) -> bool {
     potential_coordinate.1 >= 0 && potential_coordinate.1 < ysize as i32
 }
 
+fn all_coordinates(xsize: u32, ysize: u32) -> Vec<Coordinate> {
+    return (0..xsize)
+        .flat_map(|x| (0..ysize).map(move |y| Coordinate { x, y }))
+        .collect();
+}
+
 type PlayerBoard = Board<PlayerTile>;
 
 impl PlayerBoard {
@@ -181,7 +217,7 @@ mod tests {
     fn check_mines() {
         let board = Board::new(5, 5);
         let board_with_mines = board.plant_mines(&Difficulty::Easy); // in this example, does passing a reference to plant_mines 
-                                                                    // make sense?
+                                                                                     // make sense?
 
         // let mut count = 0;
 
@@ -200,6 +236,6 @@ mod tests {
             .filter(|t| t.has_mine)
             .count();
 
-        assert_eq!(count, 3);
+        assert_eq!(count, 3); // 5 * 5 board easy should have 3 mines
     }
 }
