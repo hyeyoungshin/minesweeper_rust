@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use rand::Rng;
+// use rand::Rng;
 use crate::game::Difficulty;
 
 
@@ -8,8 +8,8 @@ const DEFAULT_SIZE: u8 = 3;
 
 pub struct Board<Tile> { // making Tile 1. a parameter 2. a trait
                         // depends on whether Board needs to interact with Tile in its implementation or not
-    pub xsize: u32, // horizontal size (grows to right)
-    pub ysize: u32, // vertical size (grows down)
+    pub x_size: u32, // horizontal size (grows to right)
+    pub y_size: u32, // vertical size (grows down)
     pub board_map: HashMap<Coordinate, Tile>, // invariant: `board_map` stores precisely `xsize` * `ysize` entries
                                                 // board_map.get(&Coordinate{ x, y }) should never return None
                                                 // so if it does
@@ -22,7 +22,7 @@ pub struct Board<Tile> { // making Tile 1. a parameter 2. a trait
 pub enum PlayerTile {
     Hidden,
     Flagged,
-    Hint(i8), // i8 suffices since # of mines in neighboring tiles cannot exceed 8
+    Hint(usize), // i8 suffices since # of mines in neighboring tiles cannot exceed 8
     Mine
 }
 
@@ -41,6 +41,16 @@ pub enum TileStatus {
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub struct Coordinate { pub x: u32, pub y: u32 }
+
+pub fn random_coordinate(x_size: u32, y_size: u32) -> Coordinate {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+
+    Coordinate {
+        x: rng.gen_range(0..x_size),
+        y: rng.gen_range(0..y_size),
+    }
+}
 
 pub type RefBoard = Board<RefTile>;
 
@@ -61,14 +71,14 @@ impl RefBoard {
         }
 
         Board {
-            xsize,
-            ysize,
+            x_size: xsize,
+            y_size: ysize,
             board_map,
         }
     }
 
-    pub fn plant_mines(&self, d: &Difficulty) -> RefBoard {
-        let size = self.xsize * self.ysize;
+    pub fn plant_mines(&self, d: Difficulty) -> RefBoard {
+        let size = self.x_size * self.y_size;
         let number_of_mines: f32 = size as f32 * { 
             match d {
                 Difficulty::Easy => 0.12,
@@ -81,17 +91,13 @@ impl RefBoard {
 
         // 3. HashSet (Makes most sense and idiomatic)
         let mut mine_coordinates: HashSet<Coordinate> = HashSet::new();
-        let mut rng = rand::thread_rng();
 
         while mine_coordinates.len() < number_of_mines as usize {
-            let coordinate = Coordinate {
-                x: rng.gen_range(0..self.xsize),
-                y: rng.gen_range(0..self.xsize),
-            };
-            mine_coordinates.insert(coordinate);
-
+            mine_coordinates.insert(random_coordinate(self.x_size, self.y_size));
         }
-        
+
+        println!("mines are at: {:?}", mine_coordinates);
+         
         // 1. My approach (erroneous)
         // This approach introduced repeating coordinates for mines causing the check_mine test to fail indeterministically
         // let mine_coordinates: Vec<Coordinate> = (0..number_of_mines)
@@ -117,20 +123,17 @@ impl RefBoard {
         
         for coordinate in mine_coordinates {
             new_board_map.insert(coordinate, RefTile{has_mine: true, status: TileStatus::Hidden});
-            println!("mine coordinate is:{:?}", (coordinate.x, coordinate.y));
         }
 
-        println!("keys in board_map: {:?}", new_board_map.keys()); // 2 sometimes... why?
-
-        for x in 0..self.xsize {
-            for y in 0..self.ysize {
+        for x in 0..self.x_size {
+            for y in 0..self.y_size {
                 new_board_map.entry(Coordinate{x, y}).or_insert(RefTile{has_mine: false, status: TileStatus::Hidden});
             }
         }
 
         Board{
-            xsize: self.xsize,
-            ysize: self.ysize,
+            x_size: self.x_size,
+            y_size: self.y_size,
             board_map: new_board_map
         }
     }
@@ -154,13 +157,13 @@ impl RefBoard {
         }
 
         Board {
-            xsize: self.xsize,
-            ysize: self.ysize,
+            x_size: self.x_size,
+            y_size: self.y_size,
             board_map: player_board_map
         }
     }
 
-    pub fn num_mines_nearby(&self, coordinate: &Coordinate) -> i8 {
+    pub fn num_mines_nearby(&self, coordinate: &Coordinate) -> usize {
         let relative_coordinates:[(i32, i32); 8] = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)];
 
         let mut neighbors_coordinates: Vec<Coordinate> = Vec::new();
@@ -168,12 +171,36 @@ impl RefBoard {
         for r_c in relative_coordinates {
             let potential_coordinate = (coordinate.x as i32 + r_c.0 , coordinate.y as i32 + r_c.1 ); // u32 as i32 is ok
             
-            if is_valid(self.xsize, self.ysize, &potential_coordinate) {
+            if is_valid(self.x_size, self.y_size, &potential_coordinate) {
                 neighbors_coordinates.push(Coordinate{x: potential_coordinate.0 as u32, y: potential_coordinate.1 as u32});
             }   
         }
         
-        neighbors_coordinates.len() as i8
+        // neighbors_coordinates.len() as i8  always returns number of neighbors!
+        neighbors_coordinates.iter()
+            .filter(|c| self.board_map.get(c).unwrap().has_mine)
+            .count()
+    }
+
+    pub fn print_mines(&self) {
+        for y in 0..self.y_size {
+            for x in 0..self.x_size {
+                let reftile = self.board_map.get(&Coordinate{ x, y }).unwrap();
+                match reftile.has_mine {
+                    true => print!("* "),
+                    _ => print!("? ")
+                }
+                // match reftile.status {
+                //     TileStatus::Hidden => print!("? "),
+                //     TileStatus::Flagged => print!("! "),
+                //     TileStatus::Revealed => match reftile.has_mine {
+                //         true => print!("* "),
+                //         false => print!("{} ", self.num_mines_nearby(&Coordinate{x: x, y: y}))
+                //     }
+                // }
+            }
+            println!();
+        }
     }
 
     
@@ -194,12 +221,12 @@ type PlayerBoard = Board<PlayerTile>;
 
 impl PlayerBoard {
     pub fn print(&self) {
-        for y in 0..self.ysize {
-            for x in 0..self.xsize {
+        for y in 0..self.y_size {
+            for x in 0..self.x_size {
                 match self.board_map.get(&Coordinate{ x, y }).unwrap() {
                     PlayerTile::Hidden => print!("? "),
                     PlayerTile::Flagged => print!("! "),
-                    PlayerTile::Hint(n) => print!("{}", n),
+                    PlayerTile::Hint(n) => print!("{} ", n),
                     PlayerTile::Mine => print!("* ")
                 }
             }
@@ -216,7 +243,7 @@ mod tests {
     #[test]
     fn check_mines() {
         let board = Board::new(5, 5);
-        let board_with_mines = board.plant_mines(&Difficulty::Easy); // in this example, does passing a reference to plant_mines 
+        let board_with_mines = board.plant_mines(Difficulty::Easy); // in this example, does passing a reference to plant_mines 
                                                                                      // make sense?
 
         // let mut count = 0;
