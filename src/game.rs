@@ -37,21 +37,13 @@ pub enum Action{
 }
 
 impl Game {
-    // pub fn is_valid_input_coordinate(&self, input: Vec<&str>) -> bool {
-    //     match input.len() {
-    //         2 => (input.get(0).unwrap() < self.ref_board.x_size) && (input.get(1) < self.ref_board.y_size)
-    //         _ => false
-    //     }
-        
-    // }
-
     pub fn make_move(&self, a: &PlayerAction) -> Game {
         let mut new_board_map = self.ref_board.board_map.clone();
 
         let current_tile = self.ref_board.board_map.get(&a.coordinate).expect("tile must exist");
 
         let new_game_status = 
-            if is_valid(&current_tile.status, &a.action) {
+            if is_valid_action(&current_tile.status, &a.action) {
                 match a.action {
                     Action::Reveal => if current_tile.has_mine {GameStatus::Over} else {GameStatus::Continue},
                     Action::Flag => GameStatus::Continue,
@@ -78,6 +70,16 @@ impl Game {
             status: new_game_status
         }
     }
+
+    pub fn is_valid_coordinate(&self, coordinate: &Coordinate) -> bool {
+        coordinate.x < self.ref_board.x_size && coordinate.y < self.ref_board.y_size
+        // if coordinate.x < self.ref_board.x_size && coordinate.y < self.ref_board.y_size {
+        //     Some(coordinate) // lifetime problem if return type is Option<&Coordinate>
+        // } else {
+        //     None
+        // }
+    }
+    
 }
 
 pub fn new_game(board_size_x: u32, board_size_y: u32, d: Difficulty) -> Game {
@@ -89,13 +91,18 @@ pub fn new_game(board_size_x: u32, board_size_y: u32, d: Difficulty) -> Game {
     }
 }
 
-fn is_valid(t: &TileStatus, a: &Action) -> bool {
+fn is_valid_action(t: &TileStatus, a: &Action) -> bool {
     match t {
         TileStatus::Hidden => *a == Action::Flag || *a == Action::Reveal,
         TileStatus::Flagged => *a == Action::Unflag,
         TileStatus::Revealed => false
     }
 }
+
+// make it a method or helper function?
+// pub fn is_valid_coordinate(x_size: u32, y_size: u32, coordinate: &Coordinate) -> bool {
+//     coordinate.x < x_size && coordinate.y < y_size
+// }
 
 pub fn random_action() -> Action {
     use rand::Rng;
