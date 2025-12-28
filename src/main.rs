@@ -59,31 +59,4 @@ fn main() -> io::Result<()> {
     // }
 
     // println!("{:?}", game.status);
-
-
-    ////////////// The Game Loop //////////////
-    // Used for testing
-    // 
-    // while game.status == GameStatus::Continue {
-    //     println!("game status:{:?}", game.status);
-
-    //     let player_coordinate = random_coordinate(game.ref_board.x_size, game.ref_board.y_size);
-    //     println!("coordinate: {:?}", player_coordinate);
-        
-    //     let player_action = random_action();
-    //     println!("action: {:?}", player_action);
-        
-    //     let action = &PlayerAction {
-    //         coordinate: player_coordinate,
-    //         action: Action::Flag,
-    //     };
-        
-    //     game = game.make_move(action);
-    //     if game.status == GameStatus::Error {
-    //         println!("Invalid move! Make another move.");
-    //         game.status = GameStatus::Continue
-    //     }
-    // }
-    // println!("game status:{:?}", game.status);
-
 }
