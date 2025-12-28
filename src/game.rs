@@ -20,7 +20,7 @@ pub struct Game {
 #[derive(PartialEq, Debug)]
 pub enum GameStatus {
     Continue,
-    Over,
+    Over, //TODO: Lose or Win?
 }
 
 pub struct PlayerAction {
