@@ -21,7 +21,6 @@ pub struct Game {
 pub enum GameStatus {
     Continue,
     Over,
-    Error
 }
 
 pub struct PlayerAction {
@@ -29,7 +28,7 @@ pub struct PlayerAction {
     pub action: Action, 
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Action{
     Reveal, 
     Flag, 
@@ -43,23 +42,19 @@ impl Game {
         let current_tile = self.ref_board.board_map.get(&a.coordinate).expect("tile must exist");
 
         let new_game_status = 
-            if is_valid_action(&current_tile.status, &a.action) {
-                match a.action {
-                    Action::Reveal => if current_tile.has_mine {GameStatus::Over} else {GameStatus::Continue},
-                    Action::Flag => GameStatus::Continue,
-                    Action::Unflag => GameStatus::Continue
-                }
-            } else {
-                GameStatus::Error
+            match (a.action, current_tile.has_mine) {
+                (Action::Reveal, true) => GameStatus::Over,
+                (Action::Reveal, false) => GameStatus::Continue,
+                (Action::Flag,_) => GameStatus::Continue,
+                (Action::Unflag, _) => GameStatus::Continue
             };
-
+            
         let new_tile_status = match a.action {
             Action::Reveal => TileStatus::Revealed,
             Action::Flag => TileStatus::Flagged,
             Action::Unflag => TileStatus::Hidden
         };
-    
-        
+
         new_board_map.insert(a.coordinate, RefTile{has_mine: current_tile.has_mine, status: new_tile_status});
         
         Game {
@@ -71,15 +66,25 @@ impl Game {
         }
     }
 
-    pub fn is_valid_coordinate(&self, coordinate: &Coordinate) -> bool {
-        coordinate.x < self.ref_board.x_size && coordinate.y < self.ref_board.y_size
-        // if coordinate.x < self.ref_board.x_size && coordinate.y < self.ref_board.y_size {
-        //     Some(coordinate) // lifetime problem if return type is Option<&Coordinate>
-        // } else {
-        //     None
-        // }
+    // This function validates player's chosen coordinate 
+    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Option<Coordinate> {
+        if coordinate.x < self.ref_board.x_size && coordinate.y < self.ref_board.y_size {
+            Some(*coordinate)
+        } else {
+            None
+        }
     }
-    
+
+    // This function validates player's chosen action for the tile at the coordinate
+    pub fn validate_action(&self, action: Action, coordinate: &Coordinate) -> Option<Action> {
+        let ref_tile = self.ref_board.board_map.get(coordinate).unwrap();
+
+        match (ref_tile.status, action) {
+            (TileStatus::Hidden, Action::Flag | Action::Reveal) => Some(action),
+            (TileStatus::Flagged, Action::Unflag) => Some(action),
+            _ => None
+        }
+    }
 }
 
 pub fn new_game(board_size_x: u32, board_size_y: u32, d: Difficulty) -> Game {
@@ -91,19 +96,7 @@ pub fn new_game(board_size_x: u32, board_size_y: u32, d: Difficulty) -> Game {
     }
 }
 
-fn is_valid_action(t: &TileStatus, a: &Action) -> bool {
-    match t {
-        TileStatus::Hidden => *a == Action::Flag || *a == Action::Reveal,
-        TileStatus::Flagged => *a == Action::Unflag,
-        TileStatus::Revealed => false
-    }
-}
-
-// make it a method or helper function?
-// pub fn is_valid_coordinate(x_size: u32, y_size: u32, coordinate: &Coordinate) -> bool {
-//     coordinate.x < x_size && coordinate.y < y_size
-// }
-
+// This function picks an Action randomly. Used for automatic play.
 pub fn random_action() -> Action {
     use rand::Rng;
     match rand::thread_rng().gen_range(0..3) {
@@ -112,4 +105,3 @@ pub fn random_action() -> Action {
         _ => Action::Unflag,
     }
 }
-
