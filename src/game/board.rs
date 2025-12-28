@@ -32,7 +32,7 @@ pub struct RefTile {
     pub status: TileStatus,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum TileStatus {
     Hidden,
     Flagged,
@@ -181,29 +181,6 @@ impl RefBoard {
             .filter(|c| self.board_map.get(c).unwrap().has_mine)
             .count()
     }
-
-    pub fn print_mines(&self) {
-        for y in 0..self.y_size {
-            for x in 0..self.x_size {
-                let reftile = self.board_map.get(&Coordinate{ x, y }).unwrap();
-                match reftile.has_mine {
-                    true => print!("* "),
-                    _ => print!("? ")
-                }
-                // match reftile.status {
-                //     TileStatus::Hidden => print!("? "),
-                //     TileStatus::Flagged => print!("! "),
-                //     TileStatus::Revealed => match reftile.has_mine {
-                //         true => print!("* "),
-                //         false => print!("{} ", self.num_mines_nearby(&Coordinate{x: x, y: y}))
-                //     }
-                // }
-            }
-            println!();
-        }
-    }
-
-    
 }
 
 fn is_valid(xsize: u32, ysize: u32, potential_coordinate: &(i32, i32)) -> bool {
