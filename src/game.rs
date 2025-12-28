@@ -68,10 +68,15 @@ impl Game {
 
     // This function validates player's chosen coordinate 
     pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Option<Coordinate> {
-        if coordinate.x < self.ref_board.x_size && coordinate.y < self.ref_board.y_size {
-            Some(*coordinate)
-        } else {
-            None
+        let tile = self.ref_board.board_map.get(coordinate).unwrap();
+        match tile.status {
+            TileStatus::Revealed => None, // the tile is already revealed, no more valid action available
+            _ => if coordinate.x < self.ref_board.x_size && coordinate.y < self.ref_board.y_size {
+                Some(*coordinate)
+            } else {
+                None // coordinate out of bounds
+            } 
+
         }
     }
 

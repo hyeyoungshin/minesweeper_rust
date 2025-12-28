@@ -50,7 +50,7 @@ pub fn get_coordinate(game: &Game) -> io::Result<Coordinate> {
             Ok(coord) => {
                 match game.validate_coordinate(&coord) {
                     Some(coord) => return Ok(coord), // all match arms return ()
-                    None => println!("Coordinate out of bounds"),
+                    None => println!("tile already revealed at {:?} or Coordinate out of bounds", coord),
                 }
             }, 
             Err(msg) => println!("Parse error: {}", msg),
