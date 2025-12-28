@@ -1,79 +1,34 @@
 mod game;
+mod parse;
 
 use crate::game::*;
-use game::board::*;
+use crate::parse::*;
 use std::io;
-// use crate::game::Difficulty;
-// use crate::game::GameStatus;
 
-// qustion: the game argument is not necessary because .is_valid_coordinate can be a helper function instead. 
-// but thought it might be nice to make it depend on the game being played... but now parsing is not separated from game.
-// parse_action does not depend on game.
-// So what does Michael think about this?
-fn parse_coordinate(game: &Game, mut player_input: String) -> Result<Coordinate, Box<dyn std::error::Error>> {
-    io::stdin().read_line(&mut player_input)?;
-
-    let chars: Vec<&str> = player_input.trim().split(',').collect();
-
-    if chars.len() != 2 {
-        return Err("Expected x,y".into());
-    }
-
-    let x: u32 = chars[0].parse()?;
-    let y: u32 = chars[1].parse()?;
-
-    match game.is_valid_coordinate(&Coordinate{x: x, y: y}) {
-        true => Ok(Coordinate{x: x, y: y}),
-        false => Err("Coordinates out of bounds".into()) // .into() performs a type conversion. 
-        // It converts a value from one type into another type that the compiler can infer from context.
-        // Without it, Err(Box::<dyn std::error::Error>::from("Coordinates out of bounds"))
-    }
-}
-
-fn parse_action(mut player_input: String) -> Result<Action, Box<dyn std::error::Error>> {
-    io::stdin().read_line(&mut player_input)?;
-
-    match player_input.as_str() {
-        "Reveal" => Ok(Action::Reveal),
-        "Flag" => Ok(Action::Flag),
-        "Unflag" => Ok(Action::Unflag),
-        _ => Err("Wrong action command".into())
-    }
-}
-
+//TODO: Once a tile is revealed, you should not be able to choose this tile again.
 fn main() -> io::Result<()> {
 
     let mut game = new_game(5,5, Difficulty::Medium);
     
     ////////// interactive game loop //////////
     while game.status == GameStatus::Continue {
-        println!("Enter a coordinate separated by a comma:");
-        let mut player_input = String::new();
+        // 1. get player's coordinate
+        let player_coordinate = get_coordinate(&game)?;
+        println!("player coordinate: {:?}", player_coordinate);
+        
+        // 2. get player's action
+        let player_action = get_action(&game, &player_coordinate)?;
+        println!("player action: {:?}", player_action);
 
-        let parsed = parse_coordinate(&game, player_input);
+        // 3. update the game
+        game = game.make_move(&PlayerAction{ coordinate: player_coordinate, action: player_action });
 
-        match parsed {
-            Ok(coordinate) => {
-                println!("Enter a move: flag, unflag, reveal?");
-                let mut player_input = String::new();
-                let parsed = parse_action(player_input);
-
-                match parsed {
-                    Ok(action) => {
-                        game = game.make_move(&PlayerAction { coordinate: coordinate, action: action })
-                    },
-                    Err(msg) => {
-                        println!("{:?}", msg);
-                        continue; // TODO: go back to getting player input for action
-                    }
-                }
-            },
-            Err(msg) => {
-                println!("{:?}", msg);
-                continue;
-            }
-        }
+        // 4. print player's board
+        let player_board = game.ref_board.get_playerboard();
+        player_board.print();
     }
+
+    println!("Game Over!");
 
     Ok(())
 
@@ -98,8 +53,6 @@ fn main() -> io::Result<()> {
     //     };
         
     //     game = game.make_move(action);
-        
-    //     game.ref_board.print_mines();
     //     println!();
         
     //     game.ref_board.get_playerboard().print();
