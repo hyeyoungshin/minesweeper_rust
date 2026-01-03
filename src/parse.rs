@@ -3,19 +3,62 @@ use crate::game::board::*;
 
 use std::io;
 
-pub fn parse_coordinate(player_input: String) -> Result<Coordinate, Box<dyn std::error::Error>> {
-    let chars: Vec<&str> = player_input.trim().split(',').collect();
+#[derive(Debug)]
+pub enum ParseError {
+    BadFormat,
+    NotNumber(std::num::ParseIntError),
+}
 
-    match chars.len() {
-        2 => {
-            let x: u32 = chars[0].parse()?;
-            let y: u32 = chars[1].parse()?;
+pub enum InvalidValue {
+    OutOfBounds,
+    Unavailable,
+    MaxExceeded
+}
 
-            Ok(Coordinate{x: x, y: y})
-        },
-        _ => Err("Expected x,y format".into())
+pub trait FromPair {
+    fn from_pair(x: u32, y: u32) -> Self;
+}
+
+impl FromPair for Coordinate {
+    fn from_pair(x: u32, y: u32) -> Self {
+        Coordinate { x, y }
     }
 }
+
+impl FromPair for (u32, u32) {
+    fn from_pair(x: u32, y: u32) -> Self {
+        (x, y)
+    }
+}
+
+pub fn parse_input<T: FromPair> (player_input: String) -> Result<T, ParseError> {
+    let chars: Vec<&str> = player_input.trim().split(',').collect();
+    // TODO: -1,n triggers not number parse error
+    match chars.len() {
+        2 => {
+            let x = chars[0].parse::<u32>()
+                .map_err(ParseError::NotNumber)?;
+            let y = chars[1].parse::<u32>()
+                .map_err(ParseError::NotNumber)?;
+            Ok(T::from_pair(x, y))
+        },
+        _ => Err(ParseError::BadFormat)
+    }
+}
+
+// pub fn parse_coordinate(player_input: String) -> Result<Coordinate, Box<dyn std::error::Error>> {
+//     let chars: Vec<&str> = player_input.trim().split(',').collect();
+
+//     match chars.len() {
+//         2 => {
+//             let x = chars[0].parse::<u32>()?; // ?: if successful, unwrap the integer value; Otherwise, return immediately
+//             let y = chars[1].parse::<u32>()?;
+
+//             Ok(Coordinate{x: x, y: y})
+//         },
+//         _ => Err("Expected exactly two comma-separated integers".into())
+//     }
+// }
 
 pub fn parse_action(player_input: String) -> Result<Action, Box<dyn std::error::Error>> {
     match player_input.trim() {
@@ -24,6 +67,29 @@ pub fn parse_action(player_input: String) -> Result<Action, Box<dyn std::error::
         "Unflag" => Ok(Action::Unflag),
         _ => Err("Wrong action command".into())
     }
+}
+
+pub fn get_board_size() -> io::Result<(u32, u32)> {
+    println!("Enter your board size: hsize,vsize");
+
+    loop {
+        let mut player_input = String::new();
+        io::stdin().read_line(&mut player_input)?;
+
+        match parse_input(player_input) {
+            Ok((hsize, vsize)) => match validate_board_size(hsize, vsize) {
+                Ok(size) => return Ok(size),
+                Err(size_error) =>  match size_error {
+                    InvalidValue::MaxExceeded => {println!("board too big");},
+                    _ => {panic!("should not be here!");}
+                }
+            },
+            Err(parse_error) => match parse_error {
+                ParseError::BadFormat => {println!("Expected exactly two comma-separated integers");},
+                ParseError::NotNumber(_) => {println!("Not number");}
+            }
+        }
+    }         
 }
 
 pub fn get_coordinate(game: &Game) -> io::Result<Coordinate> {
@@ -46,14 +112,21 @@ pub fn get_coordinate(game: &Game) -> io::Result<Coordinate> {
         // Approach 2: Better design because more explicit 
         // This handles both error sources separately, and preserves error messages.
         
-        match parse_coordinate(player_input) {
+        match parse_input(player_input) {
             Ok(coord) => {
                 match game.validate_coordinate(&coord) {
-                    Some(coord) => return Ok(coord), // all match arms return ()
-                    None => println!("tile already revealed at {:?} or Coordinate out of bounds", coord),
+                    Ok(coord) => return Ok(coord), // all match arms return ()
+                    Err(value_error) => match value_error {
+                        InvalidValue::OutOfBounds => {println!("coordinate out of bounds");},
+                        InvalidValue::Unavailable => {println!("tile at {:?} already revealed", coord)},
+                        _ => {panic!("should not be here!")}
+                    }
                 }
             }, 
-            Err(msg) => println!("Parse error: {}", msg),
+            Err(parse_error) => match parse_error {
+                ParseError::BadFormat => {println!("Expected exactly two comma-separated integers");},
+                ParseError::NotNumber(_) => {println!("Not number");}
+            }
         }
     }
 }

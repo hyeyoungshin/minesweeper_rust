@@ -2,9 +2,12 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 // use rand::Rng;
 use crate::game::Difficulty;
+use crate::parse::InvalidValue;
 
 
-const DEFAULT_SIZE: u8 = 3;
+// Board's vertical and horizontal max size 
+// It is set so that we can convert u32 to i32 safely during coordinate validation
+const MAX_SIZE: u32 = i32::MAX as u32; // 2147483647 
 
 pub struct Board<Tile> { // making Tile 1. a parameter 2. a trait
                         // depends on whether Board needs to interact with Tile in its implementation or not
@@ -12,9 +15,7 @@ pub struct Board<Tile> { // making Tile 1. a parameter 2. a trait
     pub y_size: u32, // vertical size (grows down)
     pub board_map: HashMap<Coordinate, Tile>, // invariant: `board_map` stores precisely `xsize` * `ysize` entries
                                                 // board_map.get(&Coordinate{ x, y }) should never return None
-                                                // so if it does
-                                                // .unwrap() -> crash 
-                                                // .expect("err msg") -> print err msg
+                                                // *if* the coordinate is valid
 }
 
 // Tile presentation for players
@@ -42,31 +43,15 @@ pub enum TileStatus {
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub struct Coordinate { pub x: u32, pub y: u32 }
 
-pub fn random_coordinate(x_size: u32, y_size: u32) -> Coordinate {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
-
-    Coordinate {
-        x: rng.gen_range(0..x_size),
-        y: rng.gen_range(0..y_size),
-    }
-}
-
 pub type RefBoard = Board<RefTile>;
 
 impl RefBoard {
-    pub fn default() -> Self {
-        Board::new(DEFAULT_SIZE as u32, DEFAULT_SIZE as u32) // u8 -> u32 upcase (safe)
-    }
-
     pub fn new(xsize: u32, ysize: u32) -> Self {
-        let mut board_map = HashMap::new(); // mutate locally
-                                                                        // while keeping the functional style globally
-                                                                        // by generating a new `board_map` whenever a player makes a move 
+        let mut board_map = HashMap::new();
 
         for x in 0..xsize {
             for y in 0..ysize {
-                board_map.insert(Coordinate{ x, y }, RefTile {has_mine: false, status: TileStatus::Hidden});
+                board_map.insert(Coordinate{ x, y }, RefTile { has_mine: false, status: TileStatus::Hidden });
             }
         }
 
@@ -169,9 +154,10 @@ impl RefBoard {
         let mut neighbors_coordinates: Vec<Coordinate> = Vec::new();
         
         for r_c in relative_coordinates {
+            // TODO: add board size max so that casting here is safe
             let potential_coordinate = (coordinate.x as i32 + r_c.0 , coordinate.y as i32 + r_c.1 ); // u32 as i32 is ok
             
-            if is_valid(self.x_size, self.y_size, &potential_coordinate) {
+            if self.within_bounds(&potential_coordinate) {
                 neighbors_coordinates.push(Coordinate{x: potential_coordinate.0 as u32, y: potential_coordinate.1 as u32});
             }   
         }
@@ -181,17 +167,40 @@ impl RefBoard {
             .filter(|c| self.board_map.get(c).unwrap().has_mine)
             .count()
     }
+
+    pub fn within_bounds(&self, potential_coordinate: &(i32, i32)) -> bool {
+        potential_coordinate.0 >= 0 && potential_coordinate.0 < self.x_size as i32 && 
+        potential_coordinate.1 >= 0 && potential_coordinate.1 < self.y_size as i32
+    }
 }
 
-fn is_valid(xsize: u32, ysize: u32, potential_coordinate: &(i32, i32)) -> bool {
-    potential_coordinate.0 >= 0 && potential_coordinate.0 < xsize as i32 && 
-    potential_coordinate.1 >= 0 && potential_coordinate.1 < ysize as i32
+
+//////////////////////////////////////////////////////////////////
+// Helpers
+//////////////////////////////////////////////////////////////////
+pub fn random_coordinate(x_size: u32, y_size: u32) -> Coordinate {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+
+    Coordinate {
+        x: rng.gen_range(0..x_size),
+        y: rng.gen_range(0..y_size),
+    }
 }
 
+// Generates all valid coordinates of the tiles of a board of xsize * ysize
 fn all_coordinates(xsize: u32, ysize: u32) -> Vec<Coordinate> {
     return (0..xsize)
         .flat_map(|x| (0..ysize).map(move |y| Coordinate { x, y }))
         .collect();
+}
+
+pub fn validate_board_size(hsize: u32, vsize: u32) -> Result<(u32, u32), InvalidValue> {
+    if hsize < MAX_SIZE && vsize < MAX_SIZE {
+        Ok((hsize, vsize))
+    } else {
+        Err(InvalidValue::MaxExceeded)
+    }
 }
 
 type PlayerBoard = Board<PlayerTile>;

@@ -5,10 +5,12 @@ use crate::game::*;
 use crate::parse::*;
 use std::io;
 
-//TODO: Once a tile is revealed, you should not be able to choose this tile again.
 fn main() -> io::Result<()> {
+    println!("Let's play minesweeper game!");
 
-    let mut game = new_game(5,5, Difficulty::Medium);
+    let (hsize, vsize) = get_board_size()?;
+
+    let mut game = new_game(hsize, vsize, Difficulty::Medium);
     
     ////////// interactive game loop //////////
     while game.status == GameStatus::Continue {
@@ -27,7 +29,6 @@ fn main() -> io::Result<()> {
         let player_board = game.ref_board.get_playerboard();
         player_board.print();
     }
-
     println!("Game Over!");
 
     Ok(())

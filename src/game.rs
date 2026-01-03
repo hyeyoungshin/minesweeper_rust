@@ -4,6 +4,7 @@ use board::RefBoard;
 use board::RefTile;
 use board::Coordinate;
 use board::TileStatus;
+use crate::parse::InvalidValue;
 
 #[derive(Clone)]
 pub enum Difficulty {
@@ -20,8 +21,15 @@ pub struct Game {
 #[derive(PartialEq, Debug)]
 pub enum GameStatus {
     Continue,
+    Error,
     Over, //TODO: Lose or Win?
 }
+
+// pub enum Error {
+//     SizeInvalid,
+//     CoordinateInvalid,
+//     ActionInvalid
+// }
 
 pub struct PlayerAction {
     pub coordinate: Coordinate,
@@ -67,18 +75,32 @@ impl Game {
     }
 
     // This function validates player's chosen coordinate 
-    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Option<Coordinate> {
-        let tile = self.ref_board.board_map.get(coordinate).unwrap();
-        match tile.status {
-            TileStatus::Revealed => None, // the tile is already revealed, no more valid action available
-            _ => if coordinate.x < self.ref_board.x_size && coordinate.y < self.ref_board.y_size {
-                Some(*coordinate)
-            } else {
-                None // coordinate out of bounds
-            } 
+    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, InvalidValue> {
+        if self.ref_board.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
+            let tile = self.ref_board.board_map.get(coordinate).unwrap();
 
+            match tile.status {
+                TileStatus::Revealed => Err(InvalidValue::Unavailable),
+                _ => Ok(*coordinate)
+            }
+        } else {
+           Err(InvalidValue::OutOfBounds)
         }
     }
+
+    // pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Option<Coordinate> {
+    //     let tile = self.ref_board.board_map.get(coordinate).unwrap();
+    //     match tile.status {
+    //         TileStatus::Revealed => None, // the tile is already revealed, no more valid action available
+    //         _ => {
+    //             if coordinate.x < self.ref_board.x_size && coordinate.y < self.ref_board.y_size {
+    //                 Some(*coordinate)
+    //             } else {
+    //                 None // coordinate out of bounds
+    //             } 
+    //         }
+    //     }
+    // }
 
     // This function validates player's chosen action for the tile at the coordinate
     pub fn validate_action(&self, action: Action, coordinate: &Coordinate) -> Option<Action> {
