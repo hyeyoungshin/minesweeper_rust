@@ -9,24 +9,25 @@ pub enum ParseError {
     NotNumber(std::num::ParseIntError),
 }
 
-pub enum InvalidValue {
+pub enum ValidationError {
     OutOfBounds,
-    Unavailable,
-    MaxExceeded
+    TileRevealed,
+    MaxExceeded,
+    NegativeSize
 }
 
 pub trait FromPair {
-    fn from_pair(x: u32, y: u32) -> Self;
+    fn from_pair(x: i32, y: i32) -> Self; // x, y are i32 to handle negative case in validation, not parsing
 }
 
 impl FromPair for Coordinate {
-    fn from_pair(x: u32, y: u32) -> Self {
-        Coordinate { x, y }
+    fn from_pair(x: i32, y: i32) -> Self {
+        Coordinate { x: x as u32, y: y as u32 } // non-negative i32 to u32 is ok!
     }
 }
 
-impl FromPair for (u32, u32) {
-    fn from_pair(x: u32, y: u32) -> Self {
+impl FromPair for (i32, i32) {
+    fn from_pair(x: i32, y: i32) -> Self {
         (x, y)
     }
 }
@@ -36,10 +37,11 @@ pub fn parse_input<T: FromPair> (player_input: String) -> Result<T, ParseError> 
     // TODO: -1,n triggers not number parse error
     match chars.len() {
         2 => {
-            let x = chars[0].parse::<u32>()
-                .map_err(ParseError::NotNumber)?;
-            let y = chars[1].parse::<u32>()
-                .map_err(ParseError::NotNumber)?;
+            let x = chars[0].parse::<i32>()
+                .map_err(|e| ParseError::NotNumber(e))?;
+            let y = chars[1].parse::<i32>()
+                .map_err(|e| ParseError::NotNumber(e))?;
+
             Ok(T::from_pair(x, y))
         },
         _ => Err(ParseError::BadFormat)
@@ -80,7 +82,7 @@ pub fn get_board_size() -> io::Result<(u32, u32)> {
             Ok((hsize, vsize)) => match validate_board_size(hsize, vsize) {
                 Ok(size) => return Ok(size),
                 Err(size_error) =>  match size_error {
-                    InvalidValue::MaxExceeded => {println!("board too big");},
+                    ValidationError::MaxExceeded => {println!("board too big");},
                     _ => {panic!("should not be here!");}
                 }
             },
@@ -117,8 +119,8 @@ pub fn get_coordinate(game: &Game) -> io::Result<Coordinate> {
                 match game.validate_coordinate(&coord) {
                     Ok(coord) => return Ok(coord), // all match arms return ()
                     Err(value_error) => match value_error {
-                        InvalidValue::OutOfBounds => {println!("coordinate out of bounds");},
-                        InvalidValue::Unavailable => {println!("tile at {:?} already revealed", coord)},
+                        ValidationError::OutOfBounds => {println!("coordinate out of bounds");},
+                        ValidationError::TileRevealed => {println!("tile at {:?} already revealed", coord)},
                         _ => {panic!("should not be here!")}
                     }
                 }

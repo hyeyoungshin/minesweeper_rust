@@ -4,7 +4,7 @@ use board::RefBoard;
 use board::RefTile;
 use board::Coordinate;
 use board::TileStatus;
-use crate::parse::InvalidValue;
+use crate::parse::ValidationError;
 
 #[derive(Clone)]
 pub enum Difficulty {
@@ -75,16 +75,16 @@ impl Game {
     }
 
     // This function validates player's chosen coordinate 
-    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, InvalidValue> {
+    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, ValidationError> {
         if self.ref_board.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
             let tile = self.ref_board.board_map.get(coordinate).unwrap();
 
             match tile.status {
-                TileStatus::Revealed => Err(InvalidValue::Unavailable),
+                TileStatus::Revealed => Err(ValidationError::TileRevealed),
                 _ => Ok(*coordinate)
             }
         } else {
-           Err(InvalidValue::OutOfBounds)
+           Err(ValidationError::OutOfBounds)
         }
     }
 

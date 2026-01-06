@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 // use rand::Rng;
 use crate::game::Difficulty;
-use crate::parse::InvalidValue;
+use crate::parse::ValidationError;
 
 
 // Board's vertical and horizontal max size 
@@ -195,11 +195,13 @@ fn all_coordinates(xsize: u32, ysize: u32) -> Vec<Coordinate> {
         .collect();
 }
 
-pub fn validate_board_size(hsize: u32, vsize: u32) -> Result<(u32, u32), InvalidValue> {
-    if hsize < MAX_SIZE && vsize < MAX_SIZE {
-        Ok((hsize, vsize))
+pub fn validate_board_size(hsize: i32, vsize: i32) -> Result<(u32, u32), ValidationError> {
+    if hsize > MAX_SIZE as i32 && vsize > MAX_SIZE as i32 {
+        Err(ValidationError::MaxExceeded)
+    } else if hsize < 0 && vsize < 0 {
+        Err(ValidationError::NegativeSize)
     } else {
-        Err(InvalidValue::MaxExceeded)
+        Ok((hsize as u32, vsize as u32))
     }
 }
 
