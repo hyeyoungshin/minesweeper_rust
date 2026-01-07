@@ -46,7 +46,7 @@ pub struct Coordinate { pub x: u32, pub y: u32 }
 pub type RefBoard = Board<RefTile>;
 
 impl RefBoard {
-    pub fn new(xsize: u32, ysize: u32, num_mines: u32) -> Self {
+    pub fn new(xsize: u32, ysize: u32) -> Self {
         let mut board_map = HashMap::new();
 
         // initialize all tiles
@@ -61,11 +61,34 @@ impl RefBoard {
             x_size: xsize,
             y_size: ysize,
             board_map,
-        }.place_mines(num_mines)
+        }
     }
 
-    fn place_mines(&self, num_mines: u32) -> RefBoard {
-        let size = self.x_size * self.y_size;
+    pub fn place_mines_at(&self, coordinates: HashSet<Coordinate>) -> Self {
+        let mut board_map_with_mines: HashMap<Coordinate, RefTile> = HashMap::new();
+        
+        for coordinate in coordinates.clone() {
+            board_map_with_mines.insert(coordinate, RefTile{has_mine: true, status: TileStatus::Hidden});
+        }
+
+        for x in 0..self.x_size {
+            for y in 0..self.y_size {
+                board_map_with_mines
+                    .entry(Coordinate{x, y})
+                    .or_insert(RefTile{has_mine: false, status: TileStatus::Hidden});
+            }
+        }
+
+        Board{
+            x_size: self.x_size,
+            y_size: self.y_size,
+            board_map: board_map_with_mines,
+        }
+        
+    }
+
+    pub fn place_mines(&self, num_mines: u32) -> RefBoard {
+        // let size = self.x_size * self.y_size;
         // let number_of_mines: f32 = size as f32 * { 
         //     match difficulty {
         //         Difficulty::Easy => 0.12,
@@ -77,14 +100,14 @@ impl RefBoard {
         // let number_of_mines = number_of_mines.floor() as usize;
 
         // 3. HashSet (Makes most sense and idiomatic)
-        let mut mine_coordinates: HashSet<Coordinate> = HashSet::new();
+        let mut random_coordinates: HashSet<Coordinate> = HashSet::new();
 
-        while mine_coordinates.len() < num_mines as usize {
-            mine_coordinates.insert(random_coordinate(self.x_size, self.y_size));
+        while random_coordinates.len() < num_mines as usize {
+            random_coordinates.insert(random_coordinate(self.x_size, self.y_size));
         }
 
         // For testing only!!
-        println!("mines are at: {:?}", mine_coordinates);
+        println!("mines are at: {:?}", random_coordinates);
          
         // 1. My approach (erroneous)
         // This approach introduced repeating coordinates for mines causing the check_mine test to fail indeterministically
@@ -107,23 +130,7 @@ impl RefBoard {
         //     .take(number_of_mines)
         //     .collect();
 
-        let mut new_board_map: HashMap<Coordinate, RefTile> = HashMap::new();
-        
-        for coordinate in mine_coordinates.clone() {
-            new_board_map.insert(coordinate, RefTile{has_mine: true, status: TileStatus::Hidden});
-        }
-
-        for x in 0..self.x_size {
-            for y in 0..self.y_size {
-                new_board_map.entry(Coordinate{x, y}).or_insert(RefTile{has_mine: false, status: TileStatus::Hidden});
-            }
-        }
-
-        Board{
-            x_size: self.x_size,
-            y_size: self.y_size,
-            board_map: new_board_map,
-        }
+        self.place_mines_at(random_coordinates)
     }
 
     pub fn get_playerboard(&self) -> PlayerBoard {
@@ -176,13 +183,13 @@ impl RefBoard {
         potential_coordinate.1 >= 0 && potential_coordinate.1 < self.y_size as i32
     }
 
-    pub fn mine_coordinates(&self) -> Vec<Coordinate> {
-        self.board_map.clone()
-            .into_iter()
-            .filter(|(_, tile)| tile.has_mine)
-            .map(|(coordinate,_)| coordinate)
-            .collect()
-    }
+    // pub fn mine_coordinates(&self) -> Vec<Coordinate> {
+    //     self.board_map.clone()
+    //         .into_iter()
+    //         .filter(|(_, tile)| tile.has_mine)
+    //         .map(|(coordinate,_)| coordinate)
+    //         .collect()
+    // }
 }
 
 
@@ -241,24 +248,14 @@ mod tests {
 
     #[test]
     fn check_mines() {
-        let board = Board::new(5, 5, 5);
-        // let mut count = 0;
-
-        // for (_, v) in &board_with_mines.board_map { // without & for loop takes ownership of board_with_mines.board_map
-        //     if v.has_mine  {count += 1;}
-        // }
-        // // without &, board_with_mines.board_map is now gone!
-
-
-        // better because
-        // 1. does not use a mutable counter
-        // 2. more concise and readable 
-        // 3. funtional style that Rustaceans prefer
-        let count = board.board_map
+        let board = Board::new(5, 5);
+        let board_with_mines = board.place_mines(5);
+        
+        let count = board_with_mines.board_map
             .values()
             .filter(|t| t.has_mine)
             .count();
 
-        assert_eq!(count, 3); // 5 * 5 board easy should have 3 mines
+        assert_eq!(count, 5);
     }
 }

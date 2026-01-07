@@ -50,7 +50,7 @@ impl Game {
 
         let current_tile = self.ref_board.board_map.get(&a.coordinate).expect("tile must exist");
 
-        let mut new_game_status = 
+        let mut new_game_status: GameStatus = 
             match (a.action, current_tile.has_mine) {
                 (Action::Reveal, true) => GameStatus::Over,
                 _ => {
@@ -140,10 +140,10 @@ impl Game {
 }
 
 pub fn new_game(board_size_x: u32, board_size_y: u32, num_mines: u32) -> Game {
-    let new_ref_board = RefBoard::new(board_size_x, board_size_y, num_mines);
+    let new_ref_board = RefBoard::new(board_size_x, board_size_y);
     
     Game {
-        ref_board: new_ref_board,
+        ref_board: new_ref_board.place_mines(num_mines),
         status: GameStatus::Continue
     }
 }
@@ -155,5 +155,25 @@ pub fn random_action() -> Action {
         0 => Action::Reveal,
         1 => Action::Flag,
         _ => Action::Unflag,
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*; // bring all of the items belonging to the tests module’s parent into scope
+
+    #[test]
+    fn check_win_test() {
+        let game = new_game(2,2,1);
+        let mine_location: Vec<Coordinate> = game.ref_board.board_map
+            .into_iter()
+            .filter(|(_, ref_tile)| ref_tile.has_mine)
+            .map(|(coordinate, _)| coordinate)
+            .collect();
+            
+        println!("{:?}", mine_location);
+
+
     }
 }
