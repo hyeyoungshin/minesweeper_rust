@@ -5,6 +5,7 @@ use board::RefTile;
 use board::Coordinate;
 use board::TileStatus;
 use crate::parse::ValidationError;
+use crate::board::all_coordinates;
 
 #[derive(Clone)]
 pub enum Difficulty {
@@ -21,8 +22,8 @@ pub struct Game {
 #[derive(PartialEq, Debug)]
 pub enum GameStatus {
     Continue,
-    Error,
     Over, //TODO: Lose or Win?
+    Win
 }
 
 // pub enum Error {
@@ -49,14 +50,18 @@ impl Game {
 
         let current_tile = self.ref_board.board_map.get(&a.coordinate).expect("tile must exist");
 
-        let new_game_status = 
+        let mut new_game_status = 
             match (a.action, current_tile.has_mine) {
                 (Action::Reveal, true) => GameStatus::Over,
-                (Action::Reveal, false) => GameStatus::Continue,
-                (Action::Flag,_) => GameStatus::Continue,
-                (Action::Unflag, _) => GameStatus::Continue
+                _ => {
+                    if self.check_win() {
+                        GameStatus::Win
+                    } else {
+                        GameStatus::Continue
+                    }
+                }
             };
-            
+        
         let new_tile_status = match a.action {
             Action::Reveal => TileStatus::Revealed,
             Action::Flag => TileStatus::Flagged,
@@ -69,7 +74,8 @@ impl Game {
             ref_board: RefBoard{
                 x_size: self.ref_board.x_size, 
                 y_size: self.ref_board.y_size, 
-                board_map: new_board_map},
+                board_map: new_board_map,
+            },
             status: new_game_status
         }
     }
@@ -86,6 +92,25 @@ impl Game {
         } else {
            Err(ValidationError::OutOfBounds)
         }
+    }
+
+    // Check the game winning condition
+    // 1. all mines are EITHER FLAGGED OR HIDDEN
+    // 2. all non-mine tiles are REVEALED
+    fn check_win(&self) -> bool {
+        all_coordinates(self.ref_board.x_size, self.ref_board.y_size)
+            .into_iter()
+            .all(|coordinate| 
+                {
+                    let ref_tile = self.ref_board.board_map.get(&coordinate).unwrap();
+                    if ref_tile.has_mine {
+                        // ref_tile.status != TileStatus::Revealed
+                        ref_tile.status == TileStatus::Flagged || ref_tile.status == TileStatus::Hidden
+                    } else {
+                        ref_tile.status == TileStatus::Revealed
+                    }
+                }
+            )
     }
 
     // pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Option<Coordinate> {
@@ -114,11 +139,11 @@ impl Game {
     }
 }
 
-pub fn new_game(board_size_x: u32, board_size_y: u32, d: Difficulty) -> Game {
-    let new_ref_board = RefBoard::new(board_size_x, board_size_y);
+pub fn new_game(board_size_x: u32, board_size_y: u32, num_mines: u32) -> Game {
+    let new_ref_board = RefBoard::new(board_size_x, board_size_y, num_mines);
     
     Game {
-        ref_board: new_ref_board.plant_mines(d),
+        ref_board: new_ref_board,
         status: GameStatus::Continue
     }
 }
