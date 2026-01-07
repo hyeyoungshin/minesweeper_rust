@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-// use rand::Rng;
-use crate::game::Difficulty;
 use crate::parse::ValidationError;
 
 
@@ -88,18 +86,6 @@ impl RefBoard {
     }
 
     pub fn place_mines(&self, num_mines: u32) -> RefBoard {
-        // let size = self.x_size * self.y_size;
-        // let number_of_mines: f32 = size as f32 * { 
-        //     match difficulty {
-        //         Difficulty::Easy => 0.12,
-        //         Difficulty::Medium => 0.15,
-        //         Difficulty::Hard => 0.2 
-        //     }
-        // };
-
-        // let number_of_mines = number_of_mines.floor() as usize;
-
-        // 3. HashSet (Makes most sense and idiomatic)
         let mut random_coordinates: HashSet<Coordinate> = HashSet::new();
 
         while random_coordinates.len() < num_mines as usize {
@@ -207,11 +193,11 @@ pub fn random_coordinate(x_size: u32, y_size: u32) -> Coordinate {
 }
 
 // Generates all valid coordinates of the tiles of a board of xsize * ysize
-pub fn all_coordinates(xsize: u32, ysize: u32) -> Vec<Coordinate> {
-    return (0..xsize)
-        .flat_map(|x| (0..ysize).map(move |y| Coordinate { x, y }))
-        .collect();
-}
+// pub fn all_coordinates(xsize: u32, ysize: u32) -> Vec<Coordinate> {
+//     return (0..xsize)
+//         .flat_map(|x| (0..ysize).map(move |y| Coordinate { x, y }))
+//         .collect();
+// }
 
 pub fn validate_board_size(hsize: i32, vsize: i32) -> Result<(u32, u32), ValidationError> {
     if hsize > MAX_SIZE as i32 && vsize > MAX_SIZE as i32 {

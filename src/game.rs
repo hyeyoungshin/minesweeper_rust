@@ -5,14 +5,16 @@ use board::RefTile;
 use board::Coordinate;
 use board::TileStatus;
 use crate::parse::ValidationError;
-use crate::board::all_coordinates;
 
-#[derive(Clone)]
-pub enum Difficulty {
-    Easy,
-    Medium,
-    Hard
-}
+use std::collections::HashSet;
+use std::collections::HashMap;
+
+// #[derive(Clone)]
+// pub enum Difficulty {
+//     Easy,
+//     Medium,
+//     Hard
+// }
 
 pub struct Game {
     pub ref_board: RefBoard,    
@@ -25,12 +27,6 @@ pub enum GameStatus {
     Over, //TODO: Lose or Win?
     Win
 }
-
-// pub enum Error {
-//     SizeInvalid,
-//     CoordinateInvalid,
-//     ActionInvalid
-// }
 
 pub struct PlayerAction {
     pub coordinate: Coordinate,
@@ -48,20 +44,8 @@ impl Game {
     pub fn make_move(&self, a: &PlayerAction) -> Game {
         let mut new_board_map = self.ref_board.board_map.clone();
 
-        let current_tile = self.ref_board.board_map.get(&a.coordinate).expect("tile must exist");
+        let current_tile = self.ref_board.board_map.get(&a.coordinate).unwrap();
 
-        let mut new_game_status: GameStatus = 
-            match (a.action, current_tile.has_mine) {
-                (Action::Reveal, true) => GameStatus::Over,
-                _ => {
-                    if self.check_win() {
-                        GameStatus::Win
-                    } else {
-                        GameStatus::Continue
-                    }
-                }
-            };
-        
         let new_tile_status = match a.action {
             Action::Reveal => TileStatus::Revealed,
             Action::Flag => TileStatus::Flagged,
@@ -69,7 +53,19 @@ impl Game {
         };
 
         new_board_map.insert(a.coordinate, RefTile{has_mine: current_tile.has_mine, status: new_tile_status});
-        
+
+        let new_game_status: GameStatus = 
+            match (a.action, current_tile.has_mine) {
+                (Action::Reveal, true) => GameStatus::Over,
+                _ => {
+                    if self.check_win(&new_board_map) {
+                        GameStatus::Win
+                    } else {
+                        GameStatus::Continue
+                    }
+                }
+            };
+
         Game {
             ref_board: RefBoard{
                 x_size: self.ref_board.x_size, 
@@ -95,37 +91,29 @@ impl Game {
     }
 
     // Check the game winning condition
-    // 1. all mines are EITHER FLAGGED OR HIDDEN
-    // 2. all non-mine tiles are REVEALED
-    fn check_win(&self) -> bool {
-        all_coordinates(self.ref_board.x_size, self.ref_board.y_size)
-            .into_iter()
-            .all(|coordinate| 
-                {
-                    let ref_tile = self.ref_board.board_map.get(&coordinate).unwrap();
-                    if ref_tile.has_mine {
-                        // ref_tile.status != TileStatus::Revealed
-                        ref_tile.status == TileStatus::Flagged || ref_tile.status == TileStatus::Hidden
-                    } else {
-                        ref_tile.status == TileStatus::Revealed
-                    }
-                }
-            )
-    }
+    // Win condition:
+    // - All tiles that don't contain mines have been revealed
+    // - You can leave mines unflagged and still win
+    // Lose condition:
+    // - You reveal a tile with a mine (game over)
+    fn check_win(&self, new_board_map: &HashMap<Coordinate, RefTile>) -> bool {
+        new_board_map.iter().all(|(_, tile)| {
+            tile.has_mine || tile.status == TileStatus::Revealed
+        })
 
-    // pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Option<Coordinate> {
-    //     let tile = self.ref_board.board_map.get(coordinate).unwrap();
-    //     match tile.status {
-    //         TileStatus::Revealed => None, // the tile is already revealed, no more valid action available
-    //         _ => {
-    //             if coordinate.x < self.ref_board.x_size && coordinate.y < self.ref_board.y_size {
-    //                 Some(*coordinate)
-    //             } else {
-    //                 None // coordinate out of bounds
-    //             } 
-    //         }
-    //     }
-    // }
+        // My inferior implementation 
+        // all_coordinates(self.ref_board.x_size, self.ref_board.y_size)
+        //     .into_iter()
+        //     .all(|coordinate| {
+        //             let ref_tile = new_board_map.get(&coordinate).unwrap();
+        //             if ref_tile.has_mine {
+        //                 ref_tile.status == TileStatus::Flagged || ref_tile.status == TileStatus::Hidden
+        //             } else {
+        //                 ref_tile.status == TileStatus::Revealed
+        //             }
+        //         }
+        //     )
+    }
 
     // This function validates player's chosen action for the tile at the coordinate
     pub fn validate_action(&self, action: Action, coordinate: &Coordinate) -> Option<Action> {
@@ -148,6 +136,15 @@ pub fn new_game(board_size_x: u32, board_size_y: u32, num_mines: u32) -> Game {
     }
 }
 
+pub fn test_game(board_size_x: u32, board_size_y: u32, mine_coordinates: HashSet<Coordinate>) -> Game {
+    let new_ref_board = RefBoard::new(board_size_x, board_size_y);
+    
+    Game {
+        ref_board: new_ref_board.place_mines_at(mine_coordinates),
+        status: GameStatus::Continue
+    }
+}
+
 // This function picks an Action randomly. Used for automatic play.
 pub fn random_action() -> Action {
     use rand::Rng;
@@ -165,15 +162,15 @@ mod tests {
 
     #[test]
     fn check_win_test() {
-        let game = new_game(2,2,1);
-        let mine_location: Vec<Coordinate> = game.ref_board.board_map
-            .into_iter()
-            .filter(|(_, ref_tile)| ref_tile.has_mine)
-            .map(|(coordinate, _)| coordinate)
-            .collect();
-            
-        println!("{:?}", mine_location);
+        let mut mine_coordinates = HashSet::new();
+        mine_coordinates.insert(Coordinate{ x: 0, y: 0});
+        mine_coordinates.insert(Coordinate{ x: 1, y: 1});
+        
+        let mut test = test_game(2,2, mine_coordinates);
 
+        test = test.make_move(&PlayerAction{ coordinate: Coordinate{x: 0, y: 1}, action: Action::Reveal });
+        test = test.make_move(&PlayerAction{ coordinate: Coordinate{x: 1, y: 0}, action: Action::Reveal });
 
+        assert_eq!(test.status, GameStatus::Win);
     }
 }
