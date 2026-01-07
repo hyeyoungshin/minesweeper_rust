@@ -15,7 +15,7 @@ pub struct Board<Tile> { // making Tile 1. a parameter 2. a trait
     pub y_size: u32, // vertical size (grows down)
     pub board_map: HashMap<Coordinate, Tile>, // invariant: `board_map` stores precisely `xsize` * `ysize` entries
                                                 // board_map.get(&Coordinate{ x, y }) should never return None
-                                                // *if* the coordinate is valid
+                                                // *if* the coordinate is valid    
 }
 
 // Tile presentation for players
@@ -33,7 +33,7 @@ pub struct RefTile {
     pub status: TileStatus,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum TileStatus {
     Hidden,
     Flagged,
@@ -46,41 +46,44 @@ pub struct Coordinate { pub x: u32, pub y: u32 }
 pub type RefBoard = Board<RefTile>;
 
 impl RefBoard {
-    pub fn new(xsize: u32, ysize: u32) -> Self {
+    pub fn new(xsize: u32, ysize: u32, num_mines: u32) -> Self {
         let mut board_map = HashMap::new();
 
+        // initialize all tiles
         for x in 0..xsize {
             for y in 0..ysize {
                 board_map.insert(Coordinate{ x, y }, RefTile { has_mine: false, status: TileStatus::Hidden });
             }
         }
-
+        
+        // place mines
         Board {
             x_size: xsize,
             y_size: ysize,
             board_map,
-        }
+        }.place_mines(num_mines)
     }
 
-    pub fn plant_mines(&self, d: Difficulty) -> RefBoard {
+    fn place_mines(&self, num_mines: u32) -> RefBoard {
         let size = self.x_size * self.y_size;
-        let number_of_mines: f32 = size as f32 * { 
-            match d {
-                Difficulty::Easy => 0.12,
-                Difficulty::Medium => 0.15,
-                Difficulty::Hard => 0.2 
-            }
-        };
+        // let number_of_mines: f32 = size as f32 * { 
+        //     match difficulty {
+        //         Difficulty::Easy => 0.12,
+        //         Difficulty::Medium => 0.15,
+        //         Difficulty::Hard => 0.2 
+        //     }
+        // };
 
-        let number_of_mines = number_of_mines.floor() as usize;
+        // let number_of_mines = number_of_mines.floor() as usize;
 
         // 3. HashSet (Makes most sense and idiomatic)
         let mut mine_coordinates: HashSet<Coordinate> = HashSet::new();
 
-        while mine_coordinates.len() < number_of_mines as usize {
+        while mine_coordinates.len() < num_mines as usize {
             mine_coordinates.insert(random_coordinate(self.x_size, self.y_size));
         }
 
+        // For testing only!!
         println!("mines are at: {:?}", mine_coordinates);
          
         // 1. My approach (erroneous)
@@ -106,7 +109,7 @@ impl RefBoard {
 
         let mut new_board_map: HashMap<Coordinate, RefTile> = HashMap::new();
         
-        for coordinate in mine_coordinates {
+        for coordinate in mine_coordinates.clone() {
             new_board_map.insert(coordinate, RefTile{has_mine: true, status: TileStatus::Hidden});
         }
 
@@ -119,7 +122,7 @@ impl RefBoard {
         Board{
             x_size: self.x_size,
             y_size: self.y_size,
-            board_map: new_board_map
+            board_map: new_board_map,
         }
     }
 
@@ -144,7 +147,7 @@ impl RefBoard {
         Board {
             x_size: self.x_size,
             y_size: self.y_size,
-            board_map: player_board_map
+            board_map: player_board_map,
         }
     }
 
@@ -172,6 +175,14 @@ impl RefBoard {
         potential_coordinate.0 >= 0 && potential_coordinate.0 < self.x_size as i32 && 
         potential_coordinate.1 >= 0 && potential_coordinate.1 < self.y_size as i32
     }
+
+    pub fn mine_coordinates(&self) -> Vec<Coordinate> {
+        self.board_map.clone()
+            .into_iter()
+            .filter(|(_, tile)| tile.has_mine)
+            .map(|(coordinate,_)| coordinate)
+            .collect()
+    }
 }
 
 
@@ -189,7 +200,7 @@ pub fn random_coordinate(x_size: u32, y_size: u32) -> Coordinate {
 }
 
 // Generates all valid coordinates of the tiles of a board of xsize * ysize
-fn all_coordinates(xsize: u32, ysize: u32) -> Vec<Coordinate> {
+pub fn all_coordinates(xsize: u32, ysize: u32) -> Vec<Coordinate> {
     return (0..xsize)
         .flat_map(|x| (0..ysize).map(move |y| Coordinate { x, y }))
         .collect();
@@ -230,10 +241,7 @@ mod tests {
 
     #[test]
     fn check_mines() {
-        let board = Board::new(5, 5);
-        let board_with_mines = board.plant_mines(Difficulty::Easy); // in this example, does passing a reference to plant_mines 
-                                                                                     // make sense?
-
+        let board = Board::new(5, 5, 5);
         // let mut count = 0;
 
         // for (_, v) in &board_with_mines.board_map { // without & for loop takes ownership of board_with_mines.board_map
@@ -246,7 +254,7 @@ mod tests {
         // 1. does not use a mutable counter
         // 2. more concise and readable 
         // 3. funtional style that Rustaceans prefer
-        let count = board_with_mines.board_map
+        let count = board.board_map
             .values()
             .filter(|t| t.has_mine)
             .count();

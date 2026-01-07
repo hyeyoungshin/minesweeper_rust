@@ -150,3 +150,17 @@ pub fn get_action(game: &Game, coordinate: &Coordinate) -> io::Result<Action> {
         }
     }
 }
+
+pub fn get_num_mines() -> io::Result<u32> {
+    println!("Enter the number of mines: ");
+
+    loop {
+        let mut player_input = String::new();
+        io::stdin().read_line(&mut player_input)?;
+        
+        match player_input.trim().parse::<u32>() {
+            Ok(num_mines) => return Ok(num_mines),
+            Err(_) => println!("Parsing failed. Enter the number again!")
+        }
+    }
+}

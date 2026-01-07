@@ -10,7 +10,10 @@ fn main() -> io::Result<()> {
 
     let (hsize, vsize) = get_board_size()?;
 
-    let mut game = new_game(hsize, vsize, Difficulty::Medium);
+    let num_mines = get_num_mines()?;
+
+    // TODO: game takes number of mines now (Jan 5)
+    let mut game = new_game(hsize, vsize, num_mines);
     
     ////////// interactive game loop //////////
     while game.status == GameStatus::Continue {
@@ -29,7 +32,13 @@ fn main() -> io::Result<()> {
         let player_board = game.ref_board.get_playerboard();
         player_board.print();
     }
-    println!("Game Over!");
+
+    match game.status {
+        GameStatus::Win => println!("You won!"),
+        GameStatus::Over => println!("You lost..."),
+        _ => {panic!("should not be here");}
+
+    }
 
     Ok(())
 
@@ -61,3 +70,42 @@ fn main() -> io::Result<()> {
 
     // println!("{:?}", game.status);
 }
+
+
+
+// TODO: Fix this (Jan 5)
+// Error scenario #1:
+
+// player action: Reveal
+// 1 ? 
+// 1 1 
+// Enter a coordinate: x,y
+// 0,1
+// tile at Coordinate { x: 0, y: 1 } already revealed
+// 1,0   
+// player coordinate: Coordinate { x: 1, y: 0 }
+// Enter an action: Flag, Unflag, or Reveal
+// Flag
+// player action: Flag
+// 1 ! 
+// 1 1 
+// You won!
+
+
+// Error scenario #2:
+
+// player coordinate: Coordinate { x: 0, y: 1 }
+// Enter an action: Flag, Unflag, or Reveal
+// Reveal
+// player action: Reveal
+// 1 1 
+// 1 ! 
+// Enter a coordinate: x,y
+// 1,1
+// player coordinate: Coordinate { x: 1, y: 1 }
+// Enter an action: Flag, Unflag, or Reveal
+// Unflag
+// player action: Unflag
+// 1 1 
+// 1 ? 
+// You won!
