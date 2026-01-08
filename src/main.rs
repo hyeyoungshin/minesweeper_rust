@@ -9,7 +9,6 @@ fn main() -> io::Result<()> {
     println!("Let's play minesweeper game!");
 
     let (hsize, vsize) = get_board_size()?;
-
     let num_mines = get_num_mines()?;
 
     // TODO: game takes number of mines now (Jan 5)

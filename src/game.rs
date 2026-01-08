@@ -9,13 +9,6 @@ use crate::parse::ValidationError;
 use std::collections::HashSet;
 use std::collections::HashMap;
 
-// #[derive(Clone)]
-// pub enum Difficulty {
-//     Easy,
-//     Medium,
-//     Hard
-// }
-
 pub struct Game {
     pub ref_board: RefBoard,    
     pub status: GameStatus,
@@ -24,7 +17,7 @@ pub struct Game {
 #[derive(PartialEq, Debug)]
 pub enum GameStatus {
     Continue,
-    Over, //TODO: Lose or Win?
+    Over,
     Win
 }
 
