@@ -34,40 +34,40 @@ pub enum Action{
 }
 
 impl Game {
-    pub fn make_move(&self, a: &PlayerAction) -> Game {
-        let mut new_board_map = self.ref_board.board_map.clone();
+    // Updates board_map and GameStatus
+    pub fn update(&self, a: &PlayerAction) -> Game {
+        // let mut board_map_clone = self.ref_board.board_map.clone();
 
-        let current_tile = self.ref_board.board_map.get(&a.coordinate).unwrap();
+        let updated_board = self.ref_board.update(a);
+        let updated_status = self.update_status(&updated_board);
 
-        let new_tile_status = match a.action {
-            Action::Reveal => TileStatus::Revealed,
-            Action::Flag => TileStatus::Flagged,
-            Action::Unflag => TileStatus::Hidden
-        };
+        // let current_tile = self.ref_board.board_map.get(&a.coordinate).unwrap();
 
-        new_board_map.insert(a.coordinate, RefTile{has_mine: current_tile.has_mine, status: new_tile_status});
+        // let new_tile_status = match a.action {
+        //     Action::Reveal => TileStatus::Revealed,
+        //     Action::Flag => TileStatus::Flagged,
+        //     Action::Unflag => TileStatus::Hidden
+        // };
 
-        // TODO: update_status checks whether win or lose
-        // We might be able to make this faster by adding counter or using im HashMap with persistent memory
-        let new_game_status: GameStatus = 
-            match (a.action, current_tile.has_mine) {
-                (Action::Reveal, true) => GameStatus::Over,
-                _ => {
-                    if self.check_win(&new_board_map) {
-                        GameStatus::Win
-                    } else {
-                        GameStatus::Continue
-                    }
-                }
-            };
+        // board_map_clone.insert(a.coordinate, RefTile{has_mine: current_tile.has_mine, status: new_tile_status});
+
+        // // TODO: update_status checks whether win or lose
+        // // We might be able to make this faster by adding counter or using im HashMap with persistent memory
+        // let new_game_status: GameStatus = 
+        //     match (a.action, current_tile.has_mine) {
+        //         (Action::Reveal, true) => GameStatus::Over,
+        //         _ => {
+        //             if self.check_win(&board_map_clone) {
+        //                 GameStatus::Win
+        //             } else {
+        //                 GameStatus::Continue
+        //             }
+        //         }
+        //     };
 
         Game {
-            ref_board: RefBoard{
-                x_size: self.ref_board.x_size, 
-                y_size: self.ref_board.y_size, 
-                board_map: new_board_map,
-            },
-            status: new_game_status
+            ref_board: updated_board,
+            status: updated_status
         }
     }
 
@@ -83,6 +83,10 @@ impl Game {
         } else {
            Err(ValidationError::OutOfBounds)
         }
+    }
+
+    fn update_status(&self, board_map: &HashMap<Coordinate, RefTile>) -> GameStatus {
+
     }
 
     // Check the game winning condition
@@ -163,8 +167,8 @@ mod tests {
         
         let mut test = test_game(2,2, mine_coordinates);
 
-        test = test.make_move(&PlayerAction{ coordinate: Coordinate{x: 0, y: 1}, action: Action::Reveal });
-        test = test.make_move(&PlayerAction{ coordinate: Coordinate{x: 1, y: 0}, action: Action::Reveal });
+        test = test.update(&PlayerAction{ coordinate: Coordinate{x: 0, y: 1}, action: Action::Reveal });
+        test = test.update(&PlayerAction{ coordinate: Coordinate{x: 1, y: 0}, action: Action::Reveal });
 
         assert_eq!(test.status, GameStatus::Win);
     }
