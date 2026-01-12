@@ -1,19 +1,21 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use crate::text_ui::ValidationError;
+use crate::game::PlayerAction;
+use crate::game::Action;
 
 
 // Board's vertical and horizontal max size 
 // It is set so that we can convert u32 to i32 safely during coordinate validation
 const MAX_SIZE: u32 = i32::MAX as u32; // 2147483647 
 
-pub struct Board<Tile> { // making Tile 1. a parameter 2. a trait
-                        // depends on whether Board needs to interact with Tile in its implementation or not
-    pub x_size: u32, // horizontal size (grows to right)
-    pub y_size: u32, // vertical size (grows down)
-    pub board_map: HashMap<Coordinate, Tile>, // invariant: `board_map` stores precisely `xsize` * `ysize` entries
-                                                // board_map.get(&Coordinate{ x, y }) should never return None
-                                                // *if* the coordinate is valid    
+pub struct Board<Tile> { // Design Decision: making `Tile` 
+                         // 1. Parameter 
+                         // 2. Trait
+                         // depends on whether Board needs to interact with Tile in its implementation or not
+    pub x_size: u32,  // horizontal size (grows to right)
+    pub y_size: u32,  // vertical size (grows down)
+    pub board_map: HashMap<Coordinate, Tile>,
 }
 
 // Tile presentation for players
@@ -38,26 +40,41 @@ pub enum TileStatus {
     Revealed
 }
 
+impl RefTile {
+    fn update(&self, player_action: &PlayerAction) -> RefTile {
+        let updated_status = match &player_action.action { 
+            Action::Reveal => TileStatus::Revealed,
+            Action::Flag => TileStatus::Flagged,
+            Action::Unflag => TileStatus::Hidden
+        };
+
+        RefTile {
+            has_mine: self.has_mine,
+            status: updated_status
+        }
+    }
+}
+
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub struct Coordinate { pub x: u32, pub y: u32 }
 
 pub type RefBoard = Board<RefTile>;
 
 impl RefBoard {
-    pub fn new(xsize: u32, ysize: u32) -> Self {
+    pub fn new(x_size: u32, y_size: u32) -> Self {
         let mut board_map = HashMap::new();
 
         // initialize all tiles
-        for x in 0..xsize {
-            for y in 0..ysize {
+        for x in 0..x_size {
+            for y in 0..y_size {
                 board_map.insert(Coordinate{ x, y }, RefTile { has_mine: false, status: TileStatus::Hidden });
             }
         }
         
         // place mines
         Board {
-            x_size: xsize,
-            y_size: ysize,
+            x_size: x_size,
+            y_size: y_size,
             board_map,
         }
     }
@@ -119,12 +136,12 @@ impl RefBoard {
         self.place_mines_at(random_coordinates)
     }
 
-    pub fn get_playerboard(&self) -> PlayerBoard {
+    pub fn get_player_board(&self) -> PlayerBoard {
         let mut player_board_map = HashMap::new();
 
         for (coordinate, tile) in self.board_map.clone() { // .clone() is necessary 
                                                                                 // self.board_map is "moved" in the for loop
-            let playertile = match tile.status {
+            let player_tile = match tile.status {
                 TileStatus::Flagged => PlayerTile::Flagged,
                 TileStatus::Hidden => PlayerTile::Hidden,
                 TileStatus::Revealed => match tile.has_mine {
@@ -134,7 +151,7 @@ impl RefBoard {
 
             };
 
-            player_board_map.insert(coordinate, playertile);
+            player_board_map.insert(coordinate, player_tile);
         }
 
         Board {
@@ -169,18 +186,25 @@ impl RefBoard {
         potential_coordinate.1 >= 0 && potential_coordinate.1 < self.y_size as i32
     }
 
-    // pub fn mine_coordinates(&self) -> Vec<Coordinate> {
-    //     self.board_map.clone()
-    //         .into_iter()
-    //         .filter(|(_, tile)| tile.has_mine)
-    //         .map(|(coordinate,_)| coordinate)
-    //         .collect()
-    // }
+    fn update(&self, player_action: &PlayerAction) -> RefBoard {
+        let coordinate = player_action.coordinate;
+        let action = player_action.action;
+
+        let updated_tile = self.board_map.get(&coordinate).unwrap().update(&player_action);
+
+        let updated_board_map = &self.board_map.insert(coordinate, updated_tile); //.clone().insert(coordinate, updated_tile).unwrap();
+
+        RefBoard {
+            x_size: self.x_size,
+            y_size: self.y_size,
+            board_map: updated_board_map
+        }
+    }
 }
 
 
 //////////////////////////////////////////////////////////////////
-// Helpers
+// Support Functions
 //////////////////////////////////////////////////////////////////
 pub fn random_coordinate(x_size: u32, y_size: u32) -> Coordinate {
     use rand::Rng;
@@ -192,20 +216,13 @@ pub fn random_coordinate(x_size: u32, y_size: u32) -> Coordinate {
     }
 }
 
-// Generates all valid coordinates of the tiles of a board of xsize * ysize
-// pub fn all_coordinates(xsize: u32, ysize: u32) -> Vec<Coordinate> {
-//     return (0..xsize)
-//         .flat_map(|x| (0..ysize).map(move |y| Coordinate { x, y }))
-//         .collect();
-// }
-
-pub fn validate_board_size(hsize: i32, vsize: i32) -> Result<(u32, u32), ValidationError> {
-    if hsize > MAX_SIZE as i32 && vsize > MAX_SIZE as i32 {
+pub fn validate_board_size(h_size: i32, v_size: i32) -> Result<(u32, u32), ValidationError> {
+    if h_size > MAX_SIZE as i32 && v_size > MAX_SIZE as i32 {
         Err(ValidationError::MaxExceeded)
-    } else if hsize < 0 && vsize < 0 {
+    } else if h_size < 0 && v_size < 0 {
         Err(ValidationError::NegativeSize)
     } else {
-        Ok((hsize as u32, vsize as u32))
+        Ok((h_size as u32, v_size as u32))
     }
 }
 

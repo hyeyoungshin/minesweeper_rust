@@ -25,10 +25,10 @@ fn main() -> io::Result<()> {
         println!("player action: {:?}", player_action);
 
         // 3. update the game
-        game = game.make_move(&PlayerAction{ coordinate: player_coordinate, action: player_action });
+        game = game.update(&PlayerAction{ coordinate: player_coordinate, action: player_action });
 
         // 4. print player's board
-        let player_board = game.ref_board.get_playerboard();
+        let player_board = game.ref_board.get_player_board();
         player_board.print();
     }
 
