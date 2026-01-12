@@ -4,7 +4,7 @@ use board::RefBoard;
 use board::RefTile;
 use board::Coordinate;
 use board::TileStatus;
-use crate::parse::ValidationError;
+use crate::text_ui::ValidationError;
 
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -47,6 +47,8 @@ impl Game {
 
         new_board_map.insert(a.coordinate, RefTile{has_mine: current_tile.has_mine, status: new_tile_status});
 
+        // TODO: update_status checks whether win or lose
+        // We might be able to make this faster by adding counter or using im HashMap with persistent memory
         let new_game_status: GameStatus = 
             match (a.action, current_tile.has_mine) {
                 (Action::Reveal, true) => GameStatus::Over,

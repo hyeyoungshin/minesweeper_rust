@@ -1,17 +1,17 @@
 mod game;
-mod parse;
+mod text_ui;
 
 use crate::game::*;
-use crate::parse::*;
+use crate::text_ui::*;
 use std::io;
 
 fn main() -> io::Result<()> {
     println!("Let's play minesweeper game!");
 
     let (hsize, vsize) = get_board_size()?;
+    // TODO: validate input here too
     let num_mines = get_num_mines()?;
 
-    // TODO: game takes number of mines now (Jan 5)
     let mut game = new_game(hsize, vsize, num_mines);
     
     ////////// interactive game loop //////////
@@ -32,6 +32,7 @@ fn main() -> io::Result<()> {
         player_board.print();
     }
 
+    // TODO: write a function for this
     match game.status {
         GameStatus::Win => println!("You won!"),
         GameStatus::Over => println!("You lost..."),

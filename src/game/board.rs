@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use crate::parse::ValidationError;
+use crate::text_ui::ValidationError;
 
 
 // Board's vertical and horizontal max size 
