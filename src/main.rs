@@ -32,13 +32,7 @@ fn main() -> io::Result<()> {
         player_board.print();
     }
 
-    // TODO: write a function for this
-    match game.status {
-        GameStatus::Win => println!("You won!"),
-        GameStatus::Over => println!("You lost..."),
-        _ => {panic!("should not be here");}
-
-    }
+    end_game(&game);
 
     Ok(())
 
@@ -65,47 +59,8 @@ fn main() -> io::Result<()> {
     //     game = game.make_move(action);
     //     println!();
         
-    //     game.ref_board.get_playerboard().print();
+    //     game.ref_board.get_player_board().print();
     // }
 
     // println!("{:?}", game.status);
 }
-
-
-
-// TODO: Fix this (Jan 5)
-// Error scenario #1:
-
-// player action: Reveal
-// 1 ? 
-// 1 1 
-// Enter a coordinate: x,y
-// 0,1
-// tile at Coordinate { x: 0, y: 1 } already revealed
-// 1,0   
-// player coordinate: Coordinate { x: 1, y: 0 }
-// Enter an action: Flag, Unflag, or Reveal
-// Flag
-// player action: Flag
-// 1 ! 
-// 1 1 
-// You won!
-
-
-// Error scenario #2:
-
-// player coordinate: Coordinate { x: 0, y: 1 }
-// Enter an action: Flag, Unflag, or Reveal
-// Reveal
-// player action: Reveal
-// 1 1 
-// 1 ! 
-// Enter a coordinate: x,y
-// 1,1
-// player coordinate: Coordinate { x: 1, y: 1 }
-// Enter an action: Flag, Unflag, or Reveal
-// Unflag
-// player action: Unflag
-// 1 1 
-// 1 ? 
-// You won!

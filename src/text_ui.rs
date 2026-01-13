@@ -164,3 +164,11 @@ pub fn get_num_mines() -> io::Result<u32> {
         }
     }
 }
+
+pub fn end_game(game: &Game) {
+    match game.status {
+        GameStatus::Win => println!("You won!"),
+        GameStatus::Over => println!("You lost..."),
+        _ => {panic!("should not be here");}
+    }
+} 
