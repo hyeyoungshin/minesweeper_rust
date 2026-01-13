@@ -35,35 +35,9 @@ pub enum Action{
 
 impl Game {
     // Updates board_map and GameStatus
-    pub fn update(&self, a: &PlayerAction) -> Game {
-        // let mut board_map_clone = self.ref_board.board_map.clone();
-
-        let updated_board = self.ref_board.update(a);
-        let updated_status = self.update_status(&updated_board);
-
-        // let current_tile = self.ref_board.board_map.get(&a.coordinate).unwrap();
-
-        // let new_tile_status = match a.action {
-        //     Action::Reveal => TileStatus::Revealed,
-        //     Action::Flag => TileStatus::Flagged,
-        //     Action::Unflag => TileStatus::Hidden
-        // };
-
-        // board_map_clone.insert(a.coordinate, RefTile{has_mine: current_tile.has_mine, status: new_tile_status});
-
-        // // TODO: update_status checks whether win or lose
-        // // We might be able to make this faster by adding counter or using im HashMap with persistent memory
-        // let new_game_status: GameStatus = 
-        //     match (a.action, current_tile.has_mine) {
-        //         (Action::Reveal, true) => GameStatus::Over,
-        //         _ => {
-        //             if self.check_win(&board_map_clone) {
-        //                 GameStatus::Win
-        //             } else {
-        //                 GameStatus::Continue
-        //             }
-        //         }
-        //     };
+    pub fn update(&self, player_action: &PlayerAction) -> Game {
+        let updated_board = self.ref_board.update(player_action);
+        let updated_status = update_status(player_action, &updated_board.board_map);
 
         Game {
             ref_board: updated_board,
@@ -84,36 +58,7 @@ impl Game {
            Err(ValidationError::OutOfBounds)
         }
     }
-
-    fn update_status(&self, board_map: &HashMap<Coordinate, RefTile>) -> GameStatus {
-
-    }
-
-    // Check the game winning condition
-    // Win condition:
-    // - All tiles that don't contain mines have been revealed
-    // - You can leave mines unflagged and still win
-    // Lose condition:
-    // - You reveal a tile with a mine (game over)
-    fn check_win(&self, new_board_map: &HashMap<Coordinate, RefTile>) -> bool {
-        new_board_map.iter().all(|(_, tile)| {
-            tile.has_mine || tile.status == TileStatus::Revealed
-        })
-
-        // My inferior implementation 
-        // all_coordinates(self.ref_board.x_size, self.ref_board.y_size)
-        //     .into_iter()
-        //     .all(|coordinate| {
-        //             let ref_tile = new_board_map.get(&coordinate).unwrap();
-        //             if ref_tile.has_mine {
-        //                 ref_tile.status == TileStatus::Flagged || ref_tile.status == TileStatus::Hidden
-        //             } else {
-        //                 ref_tile.status == TileStatus::Revealed
-        //             }
-        //         }
-        //     )
-    }
-
+    
     // This function validates player's chosen action for the tile at the coordinate
     pub fn validate_action(&self, action: Action, coordinate: &Coordinate) -> Option<Action> {
         let ref_tile = self.ref_board.board_map.get(coordinate).unwrap();
@@ -135,7 +80,7 @@ pub fn new_game(board_size_x: u32, board_size_y: u32, num_mines: u32) -> Game {
     }
 }
 
-pub fn test_game(board_size_x: u32, board_size_y: u32, mine_coordinates: HashSet<Coordinate>) -> Game {
+fn test_game(board_size_x: u32, board_size_y: u32, mine_coordinates: &HashSet<Coordinate>) -> Game {
     let new_ref_board = RefBoard::new(board_size_x, board_size_y);
     
     Game {
@@ -143,6 +88,38 @@ pub fn test_game(board_size_x: u32, board_size_y: u32, mine_coordinates: HashSet
         status: GameStatus::Continue
     }
 }
+
+// Updates the game status based on the following logic
+// If a mine is revealed, game over
+// If not, then check whether all the non-mine tiles are revealed by calling check_win
+//     If so, game win
+//     If not, game continues
+fn update_status(player_action: &PlayerAction, board_map: &HashMap<Coordinate, RefTile>) -> GameStatus {
+        let updated_tile = board_map.get(&player_action.coordinate).unwrap();
+
+        if updated_tile.has_mine && updated_tile.status == TileStatus::Revealed {
+            GameStatus::Over
+        } else {
+            if check_win(board_map) {
+                GameStatus::Win
+            } else {
+                GameStatus::Continue
+            }
+        }
+}
+
+// Check the game winning condition
+// Win condition:
+// - All tiles that don't contain mines have been revealed
+// - You can leave mines unflagged and still win
+// Lose condition:
+// - You reveal a tile with a mine (game over)
+fn check_win(new_board_map: &HashMap<Coordinate, RefTile>) -> bool {
+    new_board_map.iter().all(|(_, tile)| {
+        tile.has_mine || tile.status == TileStatus::Revealed
+    })
+}
+
 
 // This function picks an Action randomly. Used for automatic play.
 pub fn random_action() -> Action {
@@ -161,11 +138,9 @@ mod tests {
 
     #[test]
     fn check_win_test() {
-        let mut mine_coordinates = HashSet::new();
-        mine_coordinates.insert(Coordinate{ x: 0, y: 0});
-        mine_coordinates.insert(Coordinate{ x: 1, y: 1});
-        
-        let mut test = test_game(2,2, mine_coordinates);
+        let mut mine_coordinates = HashSet::from([Coordinate{ x: 0, y: 0}, Coordinate{ x: 1, y: 1}]);
+
+        let mut test = test_game(2,2, &mine_coordinates);
 
         test = test.update(&PlayerAction{ coordinate: Coordinate{x: 0, y: 1}, action: Action::Reveal });
         test = test.update(&PlayerAction{ coordinate: Coordinate{x: 1, y: 0}, action: Action::Reveal });

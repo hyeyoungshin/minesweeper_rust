@@ -33,7 +33,7 @@ pub struct RefTile {
     pub status: TileStatus,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TileStatus {
     Hidden,
     Flagged,
@@ -79,7 +79,7 @@ impl RefBoard {
         }
     }
 
-    pub fn place_mines_at(&self, coordinates: HashSet<Coordinate>) -> Self {
+    pub fn place_mines_at(&self, coordinates: &HashSet<Coordinate>) -> Self {
         let mut board_map_with_mines: HashMap<Coordinate, RefTile> = HashMap::new();
         
         for coordinate in coordinates.clone() {
@@ -133,7 +133,7 @@ impl RefBoard {
         //     .take(number_of_mines)
         //     .collect();
 
-        self.place_mines_at(random_coordinates)
+        self.place_mines_at(&random_coordinates)
     }
 
     pub fn get_player_board(&self) -> PlayerBoard {
@@ -186,13 +186,13 @@ impl RefBoard {
         potential_coordinate.1 >= 0 && potential_coordinate.1 < self.y_size as i32
     }
 
-    fn update(&self, player_action: &PlayerAction) -> RefBoard {
+    pub fn update(&self, player_action: &PlayerAction) -> RefBoard {
         let coordinate = player_action.coordinate;
-        let action = player_action.action;
-
         let updated_tile = self.board_map.get(&coordinate).unwrap().update(&player_action);
 
-        let updated_board_map = &self.board_map.insert(coordinate, updated_tile); //.clone().insert(coordinate, updated_tile).unwrap();
+        let mut updated_board_map = self.board_map.clone();
+
+        updated_board_map.insert(coordinate, updated_tile);
 
         RefBoard {
             x_size: self.x_size,
@@ -260,5 +260,17 @@ mod tests {
             .count();
 
         assert_eq!(count, 5);
+    }
+
+    fn test_update() {
+        let board = Board::new(2, 2);
+        let mine_coordinate = HashSet::from([Coordinate{x: 0, y:0}]);
+        
+        let board_with_mines = board.place_mines_at(&mine_coordinate);
+
+        let updated_board = board_with_mines.update(&PlayerAction{coordinate: Coordinate{x: 0, y: 0}, action: Action::Flag});
+        let updated_tile = updated_board.board_map.get(mine_coordinate.iter().next().unwrap()).unwrap();
+
+        assert_eq!(updated_tile.status, TileStatus::Flagged)
     }
 }
