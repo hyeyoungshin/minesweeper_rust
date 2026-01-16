@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use crate::game::Difficulty;
 use crate::text_ui::ValidationError;
 use crate::game::PlayerAction;
 use crate::game::Action;
@@ -8,6 +9,10 @@ use crate::game::Action;
 // Board's vertical and horizontal max size 
 // It is set so that we can convert u32 to i32 safely during coordinate validation
 const MAX_SIZE: u32 = i32::MAX as u32; // 2147483647 
+
+pub const EASY: f32 = 0.12;
+pub const MEDIUM: f32 = 0.15;
+pub const HARD: f32 = 0.2;
 
 pub struct Board<Tile> { // Design Decision: making `Tile` 
                          // 1. Parameter 
@@ -102,8 +107,26 @@ impl RefBoard {
         
     }
 
-    pub fn place_mines(&self, num_mines: u32) -> RefBoard {
+    pub fn place_mines(&self, difficulty: Difficulty) -> RefBoard {
         let mut random_coordinates: HashSet<Coordinate> = HashSet::new();
+        let board_size = (self.x_size * self.y_size) as f32;
+
+        println!("board size should be 25, but {}", board_size);
+
+        let num_mines: f32 = if board_size < 5.0 {
+            1.0
+        } else {
+            board_size * 
+                match difficulty {
+                    Difficulty::Easy => EASY,
+                    Difficulty::Medium => MEDIUM,
+                    Difficulty::Hard => HARD 
+                }
+        };
+
+        let num_mines = num_mines.floor() as usize;
+
+        println!("num_mines should be 5, but {}", num_mines);
 
         while random_coordinates.len() < num_mines as usize {
             random_coordinates.insert(random_coordinate(self.x_size, self.y_size));
@@ -112,17 +135,7 @@ impl RefBoard {
         // For testing only!!
         println!("mines are at: {:?}", random_coordinates);
          
-        // 1. My approach (erroneous)
-        // This approach introduced repeating coordinates for mines causing the check_mine test to fail indeterministically
-        // let mine_coordinates: Vec<Coordinate> = (0..number_of_mines)
-        //     .map(|_| {
-        //         let random_x = rand::thread_rng().gen_range(0..self.xsize);
-        //         let random_y = rand::thread_rng().gen_range(0..self.ysize);
-        //         Coordinate { x: random_x, y: random_y }
-        //     }) 
-        //     .collect(); 
-
-        // 2. shuffling (better for denser mines)
+        // Shuffling method (better for denser mines)
         // use rand::seq::SliceRandom;
 
         // let mut all_coordinates: Vec<Coordinate> = all_coordinates(self.xsize, self.ysize)
@@ -252,16 +265,14 @@ mod tests {
     #[test]
     fn check_mines() {
         let board = Board::new(5, 5);
-        let board_with_mines = board.place_mines(5);
+        let board_with_mines = board.place_mines(Difficulty::Hard);
         
-        let count = board_with_mines.board_map
-            .values()
-            .filter(|t| t.has_mine)
-            .count();
+        let num_mines = board_with_mines.board_map.iter().fold(0, |acc, kv| if kv.1.has_mine {acc + 1} else {acc});
 
-        assert_eq!(count, 5);
+        assert_eq!(num_mines, 5);
     }
 
+    #[test]
     fn test_update() {
         let board = Board::new(2, 2);
         let mine_coordinate = HashSet::from([Coordinate{x: 0, y:0}]);
@@ -272,5 +283,15 @@ mod tests {
         let updated_tile = updated_board.board_map.get(mine_coordinate.iter().next().unwrap()).unwrap();
 
         assert_eq!(updated_tile.status, TileStatus::Flagged)
+    }
+
+    #[test]
+    fn test_place_mine() {
+        let board = Board::new(2, 2);
+        
+        let board_with_mines = board.place_mines(Difficulty::Easy);
+        let num_mines = board_with_mines.board_map.iter().fold(0, |acc, kv| if kv.1.has_mine {acc + 1} else {acc});
+
+        assert_eq!(num_mines, 1)
     }
 }

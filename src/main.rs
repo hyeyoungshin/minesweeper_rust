@@ -8,11 +8,11 @@ use std::io;
 fn main() -> io::Result<()> {
     println!("Let's play minesweeper game!");
 
-    let (hsize, vsize) = get_board_size()?;
+    let (h_size, v_size) = get_board_size()?;
     // TODO: validate input here too
-    let num_mines = get_num_mines()?;
+    let game_level = get_difficulty()?;
 
-    let mut game = new_game(hsize, vsize, num_mines);
+    let mut game = new_game(h_size, v_size, game_level);
     
     ////////// interactive game loop //////////
     while game.status == GameStatus::Continue {

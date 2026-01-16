@@ -21,6 +21,13 @@ pub enum GameStatus {
     Win
 }
 
+#[derive(Clone)]
+pub enum Difficulty {
+    Easy,
+    Medium,
+    Hard
+}
+
 pub struct PlayerAction {
     pub coordinate: Coordinate,
     pub action: Action, 
@@ -71,15 +78,17 @@ impl Game {
     }
 }
 
-pub fn new_game(board_size_x: u32, board_size_y: u32, num_mines: u32) -> Game {
+pub fn new_game(board_size_x: u32, board_size_y: u32, difficulty: Difficulty) -> Game {
     let new_ref_board = RefBoard::new(board_size_x, board_size_y);
     
     Game {
-        ref_board: new_ref_board.place_mines(num_mines),
+        ref_board: new_ref_board.place_mines(difficulty),
         status: GameStatus::Continue
     }
 }
 
+// *For test only
+// Start a game where mine locations are predetermined by you
 fn test_game(board_size_x: u32, board_size_y: u32, mine_coordinates: &HashSet<Coordinate>) -> Game {
     let new_ref_board = RefBoard::new(board_size_x, board_size_y);
     
@@ -138,7 +147,7 @@ mod tests {
 
     #[test]
     fn check_win_test() {
-        let mut mine_coordinates = HashSet::from([Coordinate{ x: 0, y: 0}, Coordinate{ x: 1, y: 1}]);
+        let mine_coordinates = HashSet::from([Coordinate{ x: 0, y: 0}, Coordinate{ x: 1, y: 1}]);
 
         let mut test = test_game(2,2, &mine_coordinates);
 

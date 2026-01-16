@@ -48,20 +48,6 @@ pub fn parse_input<T: FromPair> (player_input: String) -> Result<T, ParseError> 
     }
 }
 
-// pub fn parse_coordinate(player_input: String) -> Result<Coordinate, Box<dyn std::error::Error>> {
-//     let chars: Vec<&str> = player_input.trim().split(',').collect();
-
-//     match chars.len() {
-//         2 => {
-//             let x = chars[0].parse::<u32>()?; // ?: if successful, unwrap the integer value; Otherwise, return immediately
-//             let y = chars[1].parse::<u32>()?;
-
-//             Ok(Coordinate{x: x, y: y})
-//         },
-//         _ => Err("Expected exactly two comma-separated integers".into())
-//     }
-// }
-
 pub fn parse_action(player_input: String) -> Result<Action, Box<dyn std::error::Error>> {
     match player_input.trim() {
         "Reveal" => Ok(Action::Reveal),
@@ -72,7 +58,7 @@ pub fn parse_action(player_input: String) -> Result<Action, Box<dyn std::error::
 }
 
 pub fn get_board_size() -> io::Result<(u32, u32)> {
-    println!("Enter your board size: hsize,vsize");
+    println!("Enter your board size: h_size, v_size");
 
     loop {
         let mut player_input = String::new();
@@ -146,24 +132,34 @@ pub fn get_action(game: &Game, coordinate: &Coordinate) -> io::Result<Action> {
                 Some(action) => return Ok(action),
                 None => println!("invalid action")
             }
-            Err(msg) => println!("Parse error: {}", msg),
+            Err(msg) => println!("{}", msg),
         }
     }
 }
 
-pub fn get_num_mines() -> io::Result<u32> {
-    println!("Enter the number of mines: ");
+pub fn get_difficulty() -> io::Result<Difficulty> {
+    println!("Enter the level of difficulty: Easy({}), Medium({}), Hard({})", EASY, MEDIUM, HARD);
 
     loop {
         let mut player_input = String::new();
         io::stdin().read_line(&mut player_input)?;
         
-        match player_input.trim().parse::<u32>() {
-            Ok(num_mines) => return Ok(num_mines),
-            Err(_) => println!("Parsing failed. Enter the number again!")
+        match parse_difficulty(player_input) {
+            Ok(difficulty) => return Ok(difficulty),
+            Err(msg) => println!("{}", msg)
         }
     }
 }
+
+pub fn parse_difficulty(player_input: String) -> Result<Difficulty, Box<dyn std::error::Error>> {
+    match player_input.trim() {
+        "Easy" => Ok(Difficulty::Easy),
+        "Medium" => Ok(Difficulty::Medium),
+        "Hard" => Ok(Difficulty::Hard),
+        _ => Err("Parsing failed. Enter the level of difficulty again!".into())
+    }
+}
+
 
 pub fn end_game(game: &Game) {
     match game.status {
