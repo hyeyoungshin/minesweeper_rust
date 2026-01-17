@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+
 use crate::game::Difficulty;
 use crate::text_ui::ValidationError;
 use crate::game::PlayerAction;
-use crate::game::Action;
-
 
 // Board's vertical and horizontal max size 
 // It is set so that we can convert u32 to i32 safely during coordinate validation
@@ -14,164 +13,91 @@ pub const EASY: f32 = 0.12;
 pub const MEDIUM: f32 = 0.15;
 pub const HARD: f32 = 0.2;
 
-pub struct Board<Tile> { // Design Decision: making `Tile` 
-                         // 1. Parameter 
-                         // 2. Trait
-                         // depends on whether Board needs to interact with Tile in its implementation or not
-    pub x_size: u32,  // horizontal size (grows to right)
-    pub y_size: u32,  // vertical size (grows down)
+pub struct Board { 
+    pub h_size: u32,  // horizontal size (grows to right)
+    pub v_size: u32,  // vertical size (grows down)
     pub board_map: HashMap<Coordinate, Tile>,
+    mine_coordinates: HashSet<Coordinate>
 }
 
 // Tile presentation for players
-#[derive(Debug, Clone, PartialEq)]
-pub enum PlayerTile {
+// #[derive(Debug, Clone, PartialEq)]
+// pub enum PlayerTile {
+//     Hidden,
+//     Flagged,
+//     Hint(usize), // i8 suffices since # of mines in neighboring tiles cannot exceed 8
+//     Mine
+// }
+
+// #[derive(Clone)]
+// pub struct RefTile {
+//     pub has_mine: bool,
+//     pub status: TileStatus,
+// }
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Tile {
     Hidden,
     Flagged,
-    Hint(usize), // i8 suffices since # of mines in neighboring tiles cannot exceed 8
+    Hint(i8),
     Mine
 }
 
-#[derive(Clone)]
-pub struct RefTile {
-    pub has_mine: bool,
-    pub status: TileStatus,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TileStatus {
-    Hidden,
-    Flagged,
-    Revealed
-}
-
-impl RefTile {
-    fn update(&self, player_action: &PlayerAction) -> RefTile {
-        let updated_status = match &player_action.action { 
-            Action::Reveal => TileStatus::Revealed,
-            Action::Flag => TileStatus::Flagged,
-            Action::Unflag => TileStatus::Hidden
-        };
-
-        RefTile {
-            has_mine: self.has_mine,
-            status: updated_status
-        }
-    }
-}
+// impl Tile {
+//     fn update(&self, player_action: &PlayerAction) -> Tile {
+//         match &player_action.action { 
+//             Action::Reveal => Tile::Revealed(hint),
+//             Action::Flag => Tile::Flagged,
+//             Action::Unflag => Tile::Hidden
+//         };
+//     }
+// }
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub struct Coordinate { pub x: u32, pub y: u32 }
 
-pub type RefBoard = Board<RefTile>;
-
-impl RefBoard {
-    pub fn new(x_size: u32, y_size: u32) -> Self {
+impl Board {
+    pub fn new(h_size: u32, v_size: u32, difficulty: Difficulty) -> Self {
         let mut board_map = HashMap::new();
 
         // initialize all tiles
-        for x in 0..x_size {
-            for y in 0..y_size {
-                board_map.insert(Coordinate{ x, y }, RefTile { has_mine: false, status: TileStatus::Hidden });
+        for x in 0..h_size {
+            for y in 0..v_size {
+                board_map.insert(Coordinate{ x, y }, Tile::Hidden);
             }
         }
         
         // place mines
         Board {
-            x_size: x_size,
-            y_size: y_size,
+            h_size,
+            v_size,
             board_map,
+            mine_coordinates: get_mine_coordinates(h_size, v_size, difficulty)
         }
     }
 
-    pub fn place_mines_at(&self, coordinates: &HashSet<Coordinate>) -> Self {
-        let mut board_map_with_mines: HashMap<Coordinate, RefTile> = HashMap::new();
+    pub fn new_test(&self, coordinates: HashSet<Coordinate>) -> Self {
+        let mut board_map_with_mines: HashMap<Coordinate, Tile> = HashMap::new();
         
         for coordinate in coordinates.clone() {
-            board_map_with_mines.insert(coordinate, RefTile{has_mine: true, status: TileStatus::Hidden});
+            board_map_with_mines.insert(coordinate, Tile::Mine);
         }
 
-        for x in 0..self.x_size {
-            for y in 0..self.y_size {
+        for x in 0..self.h_size {
+            for y in 0..self.v_size {
                 board_map_with_mines
                     .entry(Coordinate{x, y})
-                    .or_insert(RefTile{has_mine: false, status: TileStatus::Hidden});
+                    .or_insert(Tile::Hidden);
             }
         }
 
         Board{
-            x_size: self.x_size,
-            y_size: self.y_size,
+            h_size: self.h_size,
+            v_size: self.v_size,
             board_map: board_map_with_mines,
+            mine_coordinates: coordinates
         }
         
-    }
-
-    pub fn place_mines(&self, difficulty: Difficulty) -> RefBoard {
-        let mut random_coordinates: HashSet<Coordinate> = HashSet::new();
-        let board_size = (self.x_size * self.y_size) as f32;
-
-        println!("board size should be 25, but {}", board_size);
-
-        let num_mines: f32 = if board_size < 5.0 {
-            1.0
-        } else {
-            board_size * 
-                match difficulty {
-                    Difficulty::Easy => EASY,
-                    Difficulty::Medium => MEDIUM,
-                    Difficulty::Hard => HARD 
-                }
-        };
-
-        let num_mines = num_mines.floor() as usize;
-
-        println!("num_mines should be 5, but {}", num_mines);
-
-        while random_coordinates.len() < num_mines as usize {
-            random_coordinates.insert(random_coordinate(self.x_size, self.y_size));
-        }
-
-        // For testing only!!
-        println!("mines are at: {:?}", random_coordinates);
-         
-        // Shuffling method (better for denser mines)
-        // use rand::seq::SliceRandom;
-
-        // let mut all_coordinates: Vec<Coordinate> = all_coordinates(self.xsize, self.ysize)
-        // all_coordinates.shuffle(&mut rand::thread_rng()); // shuffle inplace
-
-        // let mine_coordinates: Vec<Coordinate> = all_coordinates
-        //     .into_iter()
-        //     .take(number_of_mines)
-        //     .collect();
-
-        self.place_mines_at(&random_coordinates)
-    }
-
-    pub fn get_player_board(&self) -> PlayerBoard {
-        let mut player_board_map = HashMap::new();
-
-        for (coordinate, tile) in self.board_map.clone() { // .clone() is necessary 
-                                                                                // self.board_map is "moved" in the for loop
-            let player_tile = match tile.status {
-                TileStatus::Flagged => PlayerTile::Flagged,
-                TileStatus::Hidden => PlayerTile::Hidden,
-                TileStatus::Revealed => match tile.has_mine {
-                    true => PlayerTile::Mine,
-                    false => PlayerTile::Hint(self.num_mines_nearby(&coordinate))
-                }
-
-            };
-
-            player_board_map.insert(coordinate, player_tile);
-        }
-
-        Board {
-            x_size: self.x_size,
-            y_size: self.y_size,
-            board_map: player_board_map,
-        }
     }
 
     pub fn num_mines_nearby(&self, coordinate: &Coordinate) -> usize {
@@ -195,21 +121,24 @@ impl RefBoard {
     }
 
     pub fn within_bounds(&self, potential_coordinate: &(i32, i32)) -> bool {
-        potential_coordinate.0 >= 0 && potential_coordinate.0 < self.x_size as i32 && 
-        potential_coordinate.1 >= 0 && potential_coordinate.1 < self.y_size as i32
+        potential_coordinate.0 >= 0 && potential_coordinate.0 < self.h_size as i32 && 
+        potential_coordinate.1 >= 0 && potential_coordinate.1 < self.v_size as i32
     }
 
-    pub fn update(&self, player_action: &PlayerAction) -> RefBoard {
+    pub fn update(&self, player_action: &PlayerAction) -> Self {
         let coordinate = player_action.coordinate;
         let updated_tile = self.board_map.get(&coordinate).unwrap().update(&player_action);
-
         let mut updated_board_map = self.board_map.clone();
 
-        updated_board_map.insert(coordinate, updated_tile);
+        // Take care of hint = 0 case
+        match updated_tile.status {
+            TileStatus::Revealed(hint) if hint == 0 => self.expand(&coordinate), // or expand_board_map(&Coordinate, Board)
+            _ => updated_board_map.insert(coordinate, updated_tile);
+         }
 
         RefBoard {
-            x_size: self.x_size,
-            y_size: self.y_size,
+            h_size: self.h_size,
+            v_size: self.v_size,
             board_map: updated_board_map
         }
     }
@@ -219,15 +148,48 @@ impl RefBoard {
 //////////////////////////////////////////////////////////////////
 // Support Functions
 //////////////////////////////////////////////////////////////////
-pub fn random_coordinate(x_size: u32, y_size: u32) -> Coordinate {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
+pub fn get_mine_coordinates(h_size: u32, v_size: u32, difficulty: Difficulty) -> HashSet<Coordinate> {
+        let mut random_coordinates: HashSet<Coordinate> = HashSet::new();
+        let board_size = (h_size * v_size) as f32; // To compare and multiply with floating point numbers
 
-    Coordinate {
-        x: rng.gen_range(0..x_size),
-        y: rng.gen_range(0..y_size),
+        let num_mines: f32 = if board_size < 5.0 {
+            1.0
+        } else {
+            board_size * 
+                match difficulty {
+                    Difficulty::Easy => EASY,
+                    Difficulty::Medium => MEDIUM,
+                    Difficulty::Hard => HARD 
+                }
+        };
+
+        let num_mines = num_mines.floor() as usize;
+
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+
+        while random_coordinates.len() < num_mines as usize {
+            random_coordinates.insert( 
+                Coordinate {x: rng.gen_range(0..h_size), y: rng.gen_range(0..v_size)}
+            );
+        }
+
+        // For testing only!!
+        println!("mines are at: {:?}", random_coordinates);
+         
+        // Shuffling method (better for denser mines)
+        // use rand::seq::SliceRandom;
+
+        // let mut all_coordinates: Vec<Coordinate> = all_coordinates(self.xsize, self.ysize)
+        // all_coordinates.shuffle(&mut rand::thread_rng()); // shuffle inplace
+
+        // let mine_coordinates: Vec<Coordinate> = all_coordinates
+        //     .into_iter()
+        //     .take(number_of_mines)
+        //     .collect();
+
+        random_coordinates
     }
-}
 
 pub fn validate_board_size(h_size: i32, v_size: i32) -> Result<(u32, u32), ValidationError> {
     if h_size > MAX_SIZE as i32 && v_size > MAX_SIZE as i32 {
@@ -238,25 +200,6 @@ pub fn validate_board_size(h_size: i32, v_size: i32) -> Result<(u32, u32), Valid
         Ok((h_size as u32, v_size as u32))
     }
 }
-
-type PlayerBoard = Board<PlayerTile>;
-
-impl PlayerBoard {
-    pub fn print(&self) {
-        for y in 0..self.y_size {
-            for x in 0..self.x_size {
-                match self.board_map.get(&Coordinate{ x, y }).unwrap() {
-                    PlayerTile::Hidden => print!("? "),
-                    PlayerTile::Flagged => print!("! "),
-                    PlayerTile::Hint(n) => print!("{} ", n),
-                    PlayerTile::Mine => print!("* ")
-                }
-            }
-            println!();
-        }
-    }
-}
-
 
 #[cfg(test)]
 mod tests {
