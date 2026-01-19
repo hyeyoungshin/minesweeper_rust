@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+
 use crate::game::Difficulty;
-use crate::text_ui::ValidationError;
 use crate::game::PlayerAction;
+use crate::game::Action;
+use crate::text_ui::ValidationError;
+
 
 // Board's vertical and horizontal max size 
 // It is set so that we can convert u32 to i32 safely during coordinate validation
@@ -16,57 +19,30 @@ pub const HARD: f32 = 0.2;
 pub struct Board { 
     pub h_size: u32,  // horizontal size (grows to right)
     pub v_size: u32,  // vertical size (grows down)
-    pub board_map: HashMap<Coordinate, Tile>,
+    pub board_map: HashMap<Coordinate, TileStatus>,
     mine_coordinates: HashSet<Coordinate>
 }
 
-// Tile presentation for players
-// #[derive(Debug, Clone, PartialEq)]
-// pub enum PlayerTile {
-//     Hidden,
-//     Flagged,
-//     Hint(usize), // i8 suffices since # of mines in neighboring tiles cannot exceed 8
-//     Mine
-// }
-
-// #[derive(Clone)]
-// pub struct RefTile {
-//     pub has_mine: bool,
-//     pub status: TileStatus,
-// }
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TileStatus {
+    Hidden,
+    Flagged,
+    Revealed(Tile)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Tile {
-    Hidden,
-    Flagged,
     Hint(i8),
     Mine
 }
-
-// impl Tile {
-//     fn update(&self, player_action: &PlayerAction) -> Tile {
-//         match &player_action.action { 
-//             Action::Reveal => Tile::Revealed(hint),
-//             Action::Flag => Tile::Flagged,
-//             Action::Unflag => Tile::Hidden
-//         };
-//     }
-// }
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub struct Coordinate { pub x: u32, pub y: u32 }
 
 impl Board {
     pub fn new(h_size: u32, v_size: u32, difficulty: Difficulty) -> Self {
-        let mut board_map = HashMap::new();
+        let board_map = initialize_board_map(h_size, v_size);
 
-        // initialize all tiles
-        for x in 0..h_size {
-            for y in 0..v_size {
-                board_map.insert(Coordinate{ x, y }, Tile::Hidden);
-            }
-        }
-        
         // place mines
         Board {
             h_size,
@@ -76,37 +52,11 @@ impl Board {
         }
     }
 
-    pub fn new_test(&self, coordinates: HashSet<Coordinate>) -> Self {
-        let mut board_map_with_mines: HashMap<Coordinate, Tile> = HashMap::new();
-        
-        for coordinate in coordinates.clone() {
-            board_map_with_mines.insert(coordinate, Tile::Mine);
-        }
-
-        for x in 0..self.h_size {
-            for y in 0..self.v_size {
-                board_map_with_mines
-                    .entry(Coordinate{x, y})
-                    .or_insert(Tile::Hidden);
-            }
-        }
-
-        Board{
-            h_size: self.h_size,
-            v_size: self.v_size,
-            board_map: board_map_with_mines,
-            mine_coordinates: coordinates
-        }
-        
-    }
-
-    pub fn num_mines_nearby(&self, coordinate: &Coordinate) -> usize {
+    fn neighbor_coordinates (&self, coordinate: &Coordinate) -> Vec<Coordinate> {
         let relative_coordinates:[(i32, i32); 8] = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)];
-
         let mut neighbors_coordinates: Vec<Coordinate> = Vec::new();
-        
+
         for r_c in relative_coordinates {
-            // TODO: add board size max so that casting here is safe
             let potential_coordinate = (coordinate.x as i32 + r_c.0 , coordinate.y as i32 + r_c.1 ); // u32 as i32 is ok
             
             if self.within_bounds(&potential_coordinate) {
@@ -114,32 +64,56 @@ impl Board {
             }   
         }
         
-        // neighbors_coordinates.len() as i8  always returns number of neighbors!
-        neighbors_coordinates.iter()
-            .filter(|c| self.board_map.get(c).unwrap().has_mine)
+        neighbors_coordinates
+    }
+ 
+    pub fn num_mines_nearby(&self, coordinate: &Coordinate) -> usize {
+        let neighbor_coordinates = self.neighbor_coordinates(coordinate);
+        
+        neighbor_coordinates.iter()
+            .filter(|&c| self.mine_coordinates.contains(c))
             .count()
     }
 
-    pub fn within_bounds(&self, potential_coordinate: &(i32, i32)) -> bool {
-        potential_coordinate.0 >= 0 && potential_coordinate.0 < self.h_size as i32 && 
-        potential_coordinate.1 >= 0 && potential_coordinate.1 < self.v_size as i32
+    fn within_bounds(&self, potential_coordinate: &(i32, i32)) -> bool {
+        potential_coordinate.0 >= 0 && potential_coordinate.0 < self.h_size as i32 && potential_coordinate.1 >= 0 && potential_coordinate.1 < self.v_size as i32
     }
 
     pub fn update(&self, player_action: &PlayerAction) -> Self {
-        let coordinate = player_action.coordinate;
-        let updated_tile = self.board_map.get(&coordinate).unwrap().update(&player_action);
+        let player_coordinate = player_action.coordinate;
+        let current_tile_status = self.board_map.get(&player_coordinate).unwrap();
+
+        let updated_tile_status = match player_action.action {
+            Action::Reveal => {
+                if self.mine_coordinates.contains(&player_coordinate) { 
+                    TileStatus::Revealed(Tile::Mine)
+                } else { 
+                    TileStatus::Revealed(Tile::Hint(self.num_mines_nearby(&player_coordinate) as i8))
+                }
+            },
+            Action::Flag => TileStatus::Flagged,
+            Action::Unflag => TileStatus::Hidden,
+        };
+        
         let mut updated_board_map = self.board_map.clone();
 
         // Take care of hint = 0 case
-        match updated_tile.status {
-            TileStatus::Revealed(hint) if hint == 0 => self.expand(&coordinate), // or expand_board_map(&Coordinate, Board)
-            _ => updated_board_map.insert(coordinate, updated_tile);
-         }
+        match updated_tile_status {
+            TileStatus::Revealed(Tile::Hint(n)) if n == 0 => self.reveal(self.neighbor_coordinates(&player_coordinate), updated_board_map),
+            _ => updated_board_map.insert(player_coordinate, updated_tile_status)
+         };
 
-        RefBoard {
+        Board {
             h_size: self.h_size,
             v_size: self.v_size,
-            board_map: updated_board_map
+            board_map: updated_board_map,
+            mine_coordinates: self.mine_coordinates
+        }
+    }
+
+    fn reveal(self, neighbor_coordinates: Vec<Coordinate>, mut board_map: HashMap<Coordinate, TileStatus>) -> Option<TileStatus> {
+        if neighbor_coordinates.is_empty() {
+            
         }
     }
 }
@@ -148,6 +122,31 @@ impl Board {
 //////////////////////////////////////////////////////////////////
 // Support Functions
 //////////////////////////////////////////////////////////////////
+
+fn initialize_board_map(h_size: u32, v_size: u32) -> HashMap<Coordinate, TileStatus> {
+    let mut board_map = HashMap::new();
+    // initialize all tiles
+    for x in 0..h_size {
+        for y in 0..v_size {
+            board_map.insert(Coordinate{ x, y }, TileStatus::Hidden);
+        }
+    }
+
+    board_map
+}
+
+// Creates a board with mines located at specified coordinates
+pub fn new_test_board(h_size: u32, v_size: u32, mine_coordinates: HashSet<Coordinate>) -> Board {
+    let board_map = initialize_board_map(h_size, v_size);
+
+    Board{
+        h_size: h_size,
+        v_size: v_size,
+        board_map, 
+        mine_coordinates: mine_coordinates
+    }        
+}
+
 pub fn get_mine_coordinates(h_size: u32, v_size: u32, difficulty: Difficulty) -> HashSet<Coordinate> {
         let mut random_coordinates: HashSet<Coordinate> = HashSet::new();
         let board_size = (h_size * v_size) as f32; // To compare and multiply with floating point numbers
@@ -206,35 +205,26 @@ mod tests {
     use super::*; // bring all of the items belonging to the tests module’s parent into scope
 
     #[test]
-    fn check_mines() {
-        let board = Board::new(5, 5);
-        let board_with_mines = board.place_mines(Difficulty::Hard);
-        
-        let num_mines = board_with_mines.board_map.iter().fold(0, |acc, kv| if kv.1.has_mine {acc + 1} else {acc});
+    fn num_mine_easy() {
+        let new_board = Board::new(2, 2, Difficulty::Easy);
+        assert_eq!(new_board.mine_coordinates.len(), 1)
+    }
 
-        assert_eq!(num_mines, 5);
+    #[test]
+    fn num_mines_hard() {
+        let new_board = Board::new(5, 5, Difficulty::Hard);
+        assert_eq!(new_board.mine_coordinates.len(), 5);
     }
 
     #[test]
     fn test_update() {
-        let board = Board::new(2, 2);
-        let mine_coordinate = HashSet::from([Coordinate{x: 0, y:0}]);
-        
-        let board_with_mines = board.place_mines_at(&mine_coordinate);
+        let test_coordinate = Coordinate{x: 0, y: 0};
+        let mine_coordinate = HashSet::from([test_coordinate]);
+        let test_board = new_test_board(2, 2, mine_coordinate); // ownership of mine_coordinate moved here
 
-        let updated_board = board_with_mines.update(&PlayerAction{coordinate: Coordinate{x: 0, y: 0}, action: Action::Flag});
-        let updated_tile = updated_board.board_map.get(mine_coordinate.iter().next().unwrap()).unwrap();
+        let updated_board = test_board.update(&PlayerAction{coordinate: test_coordinate, action: Action::Flag});
+        let updated_tile_status = updated_board.board_map.get(&test_coordinate);
 
-        assert_eq!(updated_tile.status, TileStatus::Flagged)
-    }
-
-    #[test]
-    fn test_place_mine() {
-        let board = Board::new(2, 2);
-        
-        let board_with_mines = board.place_mines(Difficulty::Easy);
-        let num_mines = board_with_mines.board_map.iter().fold(0, |acc, kv| if kv.1.has_mine {acc + 1} else {acc});
-
-        assert_eq!(num_mines, 1)
+        assert_eq!(*updated_tile_status.unwrap(), TileStatus::Flagged)
     }
 }
