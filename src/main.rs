@@ -28,7 +28,7 @@ fn main() -> io::Result<()> {
         game = game.update(&PlayerAction{ coordinate: player_coordinate, action: player_action });
 
         // 4. print player's board
-        let player_board = game.ref_board.get_player_board();
+        let player_board = game.board.get_player_board();
         player_board.print();
     }
 

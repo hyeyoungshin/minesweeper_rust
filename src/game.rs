@@ -1,16 +1,16 @@
 pub mod board; 
 
-use board::RefBoard;
-use board::RefTile;
+use board::Board;
 use board::Coordinate;
 use board::TileStatus;
+use board::*;
 use crate::text_ui::ValidationError;
 
 use std::collections::HashSet;
 use std::collections::HashMap;
 
 pub struct Game {
-    pub ref_board: RefBoard,    
+    pub board: Board,    
     pub status: GameStatus,
 }
 
@@ -42,23 +42,23 @@ pub enum Action{
 
 impl Game {
     // Updates board_map and GameStatus
-    pub fn update(&self, player_action: &PlayerAction) -> Game {
-        let updated_board = self.ref_board.update(player_action);
-        let updated_status = update_status(player_action, &updated_board.board_map);
+    pub fn update(self, player_action: &PlayerAction) -> Game {
+        let updated_board = self.board.update(player_action);
+        let updated_status = self.update_status(player_action, &updated_board.board_map);
 
         Game {
-            ref_board: updated_board,
+            board: updated_board,
             status: updated_status
         }
     }
 
     // This function validates player's chosen coordinate 
     pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, ValidationError> {
-        if self.ref_board.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
-            let tile = self.ref_board.board_map.get(coordinate).unwrap();
+        if self.board.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
+            let tile_status = self.board.board_map.get(coordinate).unwrap();
 
-            match tile.status {
-                TileStatus::Revealed => Err(ValidationError::TileRevealed),
+            match tile_status {
+                TileStatus::Revealed(_) => Err(ValidationError::TileRevealed),
                 _ => Ok(*coordinate)
             }
         } else {
@@ -68,65 +68,65 @@ impl Game {
     
     // This function validates player's chosen action for the tile at the coordinate
     pub fn validate_action(&self, action: Action, coordinate: &Coordinate) -> Option<Action> {
-        let ref_tile = self.ref_board.board_map.get(coordinate).unwrap();
+        let tile_status = self.board.board_map.get(coordinate).unwrap();
 
-        match (ref_tile.status, action) {
+        match (tile_status, action) {
             (TileStatus::Hidden, Action::Flag | Action::Reveal) => Some(action),
             (TileStatus::Flagged, Action::Unflag) => Some(action),
             _ => None
         }
     }
+
+    // Updates the game status based on the following logic
+    // If a mine is revealed, game over
+    // If not, then check whether all the non-mine tiles are revealed by calling check_win
+    //     If so, game win
+    //     If not, game continues
+    fn update_status(&self, player_action: &PlayerAction, board_map: &HashMap<Coordinate, TileStatus>) -> GameStatus {
+        let tile_status = board_map.get(&player_action.coordinate).unwrap();
+
+        if *tile_status == TileStatus::Revealed(Tile::Mine) {
+            GameStatus::Over
+        } else {
+            if self.check_win(board_map) {
+                GameStatus::Win
+            } else {
+                GameStatus::Continue
+            }
+        }
+    }
+
+    // Check the game winning condition
+    // Win condition:
+    // - All tiles that don't contain mines have been revealed
+    // - You can leave mines unflagged and still win
+    // Lose condition:
+    // - You reveal a tile with a mine (game over)
+    fn check_win(&self, board_map: &HashMap<Coordinate, TileStatus>) -> bool {
+        board_map.iter().all(|(coordinate, tile_status)| {
+            self.board.is_mine(coordinate) || matches!(tile_status, TileStatus::Revealed(Tile::Hint(_)))
+        })
+}
 }
 
 pub fn new_game(board_size_x: u32, board_size_y: u32, difficulty: Difficulty) -> Game {
-    let new_ref_board = RefBoard::new(board_size_x, board_size_y);
+    let new_board = Board::new(board_size_x, board_size_y, difficulty);
     
     Game {
-        ref_board: new_ref_board.place_mines(difficulty),
+        board: new_board,
         status: GameStatus::Continue
     }
 }
 
 // *For test only
 // Start a game where mine locations are predetermined by you
-fn test_game(board_size_x: u32, board_size_y: u32, mine_coordinates: &HashSet<Coordinate>) -> Game {
-    let new_ref_board = RefBoard::new(board_size_x, board_size_y);
+fn test_game(board_size_x: u32, board_size_y: u32, mine_coordinates: HashSet<Coordinate>) -> Game {
+    let test_board = new_test_board(board_size_x, board_size_y, mine_coordinates);
     
     Game {
-        ref_board: new_ref_board.place_mines_at(mine_coordinates),
+        board: test_board,
         status: GameStatus::Continue
     }
-}
-
-// Updates the game status based on the following logic
-// If a mine is revealed, game over
-// If not, then check whether all the non-mine tiles are revealed by calling check_win
-//     If so, game win
-//     If not, game continues
-fn update_status(player_action: &PlayerAction, board_map: &HashMap<Coordinate, RefTile>) -> GameStatus {
-        let updated_tile = board_map.get(&player_action.coordinate).unwrap();
-
-        if updated_tile.has_mine && updated_tile.status == TileStatus::Revealed {
-            GameStatus::Over
-        } else {
-            if check_win(board_map) {
-                GameStatus::Win
-            } else {
-                GameStatus::Continue
-            }
-        }
-}
-
-// Check the game winning condition
-// Win condition:
-// - All tiles that don't contain mines have been revealed
-// - You can leave mines unflagged and still win
-// Lose condition:
-// - You reveal a tile with a mine (game over)
-fn check_win(new_board_map: &HashMap<Coordinate, RefTile>) -> bool {
-    new_board_map.iter().all(|(_, tile)| {
-        tile.has_mine || tile.status == TileStatus::Revealed
-    })
 }
 
 
@@ -149,7 +149,7 @@ mod tests {
     fn check_win_test() {
         let mine_coordinates = HashSet::from([Coordinate{ x: 0, y: 0}, Coordinate{ x: 1, y: 1}]);
 
-        let mut test = test_game(2,2, &mine_coordinates);
+        let mut test = test_game(2,2, mine_coordinates);
 
         test = test.update(&PlayerAction{ coordinate: Coordinate{x: 0, y: 1}, action: Action::Reveal });
         test = test.update(&PlayerAction{ coordinate: Coordinate{x: 1, y: 0}, action: Action::Reveal });
