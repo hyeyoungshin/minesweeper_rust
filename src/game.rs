@@ -7,7 +7,6 @@ use board::*;
 use crate::text_ui::ValidationError;
 
 use std::collections::HashSet;
-use std::collections::HashMap;
 
 pub struct Game {
     pub board: Board,    
@@ -41,10 +40,60 @@ pub enum Action{
 }
 
 impl Game {
+    pub fn new(board_size_x: u32, board_size_y: u32, difficulty: Difficulty) -> Game {
+        let new_board = Board::new(board_size_x, board_size_y, difficulty);
+        
+        Game {
+            board: new_board,
+            status: GameStatus::Continue
+        }
+    }
+
+    // *For testing only
+    // Start a game where mine locations are predetermined by you
+    pub fn new_test(board_size_x: u32, board_size_y: u32, mine_coordinates: HashSet<Coordinate>) -> Game {
+        let test_board = Board::new_test(board_size_x, board_size_y, mine_coordinates);
+        
+        Game {
+            board: test_board,
+            status: GameStatus::Continue
+        }
+    }
+
+    // Updates the game status based on the following logic
+    // If a mine is revealed, game over
+    // If not, then check whether all the non-mine tiles are revealed by calling check_win
+    //     If so, game win
+    //     If not, game continues
+    pub fn update_status(player_action: &PlayerAction, board: &Board) -> GameStatus {
+        let current_tile = board.board_map.get(&player_action.coordinate).unwrap();
+        
+        match current_tile {
+            TileStatus::Revealed(Tile::Mine) => GameStatus::Over,
+            _ => match Game::check_win(board) {
+                true => GameStatus::Win,
+                false => GameStatus::Continue
+            }
+        }
+    }
+
+    // Check the game winning condition
+    // Win condition:
+    // - All tiles that don't contain mines have been revealed
+    // - You can leave mines unflagged and still win
+    // Lose condition:
+    // - You reveal a tile with a mine (game over)
+    fn check_win(board: &Board) -> bool {
+        board.board_map.iter().all(|(coordinate, tile_status)| {
+            board.is_mine(coordinate) || matches!(tile_status, TileStatus::Revealed(Tile::Hint(_)))
+        })
+    }
+
     // Updates board_map and GameStatus
     pub fn update(self, player_action: &PlayerAction) -> Game {
-        let updated_board = self.board.update(player_action);
-        let updated_status = self.update_status(player_action, &updated_board.board_map);
+        let current_board = self.board;
+        let updated_board = current_board.update(player_action);
+        let updated_status = Game::update_status(player_action, &updated_board);
 
         Game {
             board: updated_board,
@@ -54,7 +103,7 @@ impl Game {
 
     // This function validates player's chosen coordinate 
     pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, ValidationError> {
-        if self.board.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
+        if Board::within_bounds(self.board.h_size, self.board.v_size, &(coordinate.x as i32, coordinate.y as i32)) {
             let tile_status = self.board.board_map.get(coordinate).unwrap();
 
             match tile_status {
@@ -77,66 +126,17 @@ impl Game {
         }
     }
 
-    // Updates the game status based on the following logic
-    // If a mine is revealed, game over
-    // If not, then check whether all the non-mine tiles are revealed by calling check_win
-    //     If so, game win
-    //     If not, game continues
-    fn update_status(&self, player_action: &PlayerAction, board_map: &HashMap<Coordinate, TileStatus>) -> GameStatus {
-        let tile_status = board_map.get(&player_action.coordinate).unwrap();
+}
 
-        if *tile_status == TileStatus::Revealed(Tile::Mine) {
-            GameStatus::Over
-        } else {
-            if self.check_win(board_map) {
-                GameStatus::Win
-            } else {
-                GameStatus::Continue
-            }
+impl Action {
+    // This function picks an Action randomly. Used for automatic play.
+    pub fn random_action() -> Action {
+        use rand::Rng;
+        match rand::thread_rng().gen_range(0..3) {
+            0 => Action::Reveal,
+            1 => Action::Flag,
+            _ => Action::Unflag,
         }
-    }
-
-    // Check the game winning condition
-    // Win condition:
-    // - All tiles that don't contain mines have been revealed
-    // - You can leave mines unflagged and still win
-    // Lose condition:
-    // - You reveal a tile with a mine (game over)
-    fn check_win(&self, board_map: &HashMap<Coordinate, TileStatus>) -> bool {
-        board_map.iter().all(|(coordinate, tile_status)| {
-            self.board.is_mine(coordinate) || matches!(tile_status, TileStatus::Revealed(Tile::Hint(_)))
-        })
-}
-}
-
-pub fn new_game(board_size_x: u32, board_size_y: u32, difficulty: Difficulty) -> Game {
-    let new_board = Board::new(board_size_x, board_size_y, difficulty);
-    
-    Game {
-        board: new_board,
-        status: GameStatus::Continue
-    }
-}
-
-// *For test only
-// Start a game where mine locations are predetermined by you
-fn test_game(board_size_x: u32, board_size_y: u32, mine_coordinates: HashSet<Coordinate>) -> Game {
-    let test_board = new_test_board(board_size_x, board_size_y, mine_coordinates);
-    
-    Game {
-        board: test_board,
-        status: GameStatus::Continue
-    }
-}
-
-
-// This function picks an Action randomly. Used for automatic play.
-pub fn random_action() -> Action {
-    use rand::Rng;
-    match rand::thread_rng().gen_range(0..3) {
-        0 => Action::Reveal,
-        1 => Action::Flag,
-        _ => Action::Unflag,
     }
 }
 
@@ -149,7 +149,7 @@ mod tests {
     fn check_win_test() {
         let mine_coordinates = HashSet::from([Coordinate{ x: 0, y: 0}, Coordinate{ x: 1, y: 1}]);
 
-        let mut test = test_game(2,2, mine_coordinates);
+        let mut test = Game::new_test(2,2, mine_coordinates);
 
         test = test.update(&PlayerAction{ coordinate: Coordinate{x: 0, y: 1}, action: Action::Reveal });
         test = test.update(&PlayerAction{ coordinate: Coordinate{x: 1, y: 0}, action: Action::Reveal });

@@ -65,7 +65,7 @@ pub fn get_board_size() -> io::Result<(u32, u32)> {
         io::stdin().read_line(&mut player_input)?;
 
         match parse_input(player_input) {
-            Ok((hsize, vsize)) => match validate_board_size(hsize, vsize) {
+            Ok((hsize, vsize)) => match Board::validate_size(hsize, vsize) {
                 Ok(size) => return Ok(size),
                 Err(size_error) =>  match size_error {
                     ValidationError::MaxExceeded => {println!("board too big");},
