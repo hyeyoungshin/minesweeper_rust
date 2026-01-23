@@ -91,19 +91,21 @@ impl Game {
 
     // Updates board_map and GameStatus
     pub fn update(self, player_action: &PlayerAction) -> Game {
-        let current_board = self.board;
-        let updated_board = current_board.update(player_action);
-        let updated_status = Game::update_status(player_action, &updated_board);
+        let mut current_board = self.board;
+        let updated_board = current_board.update(player_action); // mut self ver: no other program has access to current_board
+                                                                             // &mut self ver: 
+        
+        let updated_status = Game::update_status(player_action, &current_board);
 
         Game {
-            board: updated_board,
+            board: current_board,
             status: updated_status
         }
     }
 
     // This function validates player's chosen coordinate 
-    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, ValidationError> {
-        if Board::within_bounds(self.board.h_size, self.board.v_size, &(coordinate.x as i32, coordinate.y as i32)) {
+    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, ValidationError> {        
+        if self.board.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
             let tile_status = self.board.board_map.get(coordinate).unwrap();
 
             match tile_status {
