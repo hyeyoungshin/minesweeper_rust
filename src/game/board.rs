@@ -7,7 +7,6 @@ use crate::game::PlayerAction;
 use crate::game::Action;
 use crate::text_ui::ValidationError;
 
-
 // Board's vertical and horizontal max size 
 // It is set so that we can convert u32 to i32 safely during coordinate validation
 const MAX_SIZE: u32 = i32::MAX as u32; // 2147483647 
@@ -146,46 +145,35 @@ impl Board {
         potential_coordinate.0 >= 0 && potential_coordinate.0 < self.h_size as i32 && potential_coordinate.1 >= 0 && potential_coordinate.1 < self.v_size as i32
     }
 
-    // TODO: doc
+    // Updates the board in place
+    //  - `mut self` (instead of `&mut self`): after an update, the previous board state is gone
+    //  - `player_action`` is assumed to have been validated
     pub fn update(mut self, player_action: &PlayerAction) -> Board {
         let player_coordinate = player_action.coordinate;
 
-        self.reveal(&player_coordinate);
-        
-        println!("{:?} is revealed first.", self.board_map.get(&player_coordinate).unwrap());        
-
-        let neighboring_coordinates = self.neighboring_coordinates(&player_coordinate);
-        
-        match self.board_map.get(&player_coordinate).unwrap() {
-            TileStatus::Revealed(Tile::Hint(n)) if *n == 0 => {
-                println!("hint = 0, so reveal more!");
-                self.reveal_all(&neighboring_coordinates)
-            }
-            _ => ()
-        };
-
-        for neighbor in neighboring_coordinates {
-            println!("{:?} is revealed to {:?}", neighbor, self.board_map.get(&neighbor).unwrap())
+        match player_action.action {
+            Action::Reveal => self.reveal(&player_coordinate),
+            Action::Flag => { self.board_map.insert(player_coordinate, TileStatus::Flagged); },
+            Action::Unflag => { self.board_map.insert(player_coordinate, TileStatus::Hidden); }
         }
-        
+
         self
     }
 
 
-    fn reveal_all(&mut self, unrevealed_neighbors: &[Coordinate]) {
-        match unrevealed_neighbors {
+    fn reveal_all(&mut self, neighbors: &[Coordinate]) {
+        match neighbors {
             [] => (),
             [head, tail @..] => {
                 self.reveal(head);
-                self.reveal_all(tail)
+                self.reveal_all(tail);
             }
         }
     }
 
     fn reveal(&mut self, coordinate: &Coordinate) {
-        // let mut board_map = self.board_map.clone();
-        
-        match self.board_map.get(coordinate).unwrap()  {
+        let current_tile = self.board_map.get(coordinate).unwrap();
+        match current_tile  {
             TileStatus::Hidden => {
                 if self.is_mine(coordinate) {   
                     self.board_map.insert(*coordinate, TileStatus::Revealed(Tile::Mine));
@@ -193,10 +181,16 @@ impl Board {
                 } else {
                     let hint = self.num_mines_nearby(coordinate);
                     self.board_map.insert(*coordinate, TileStatus::Revealed(Tile::Hint(hint)));
+                    
+                    if hint == 0 {
+                        let neighbors = self.neighboring_coordinates(coordinate);
+                        self.reveal_all(&neighbors);
+                    } 
                 }
             },
+            // revealing a tile that's not hidden does not do anything
             _ => ()
-       }
+        }
     }
 
     pub fn validate_size(h_size: i32, v_size: i32) -> Result<(u32, u32), ValidationError> {
@@ -209,11 +203,6 @@ impl Board {
         }
     }
 }
-
-
-//////////////////////////////////////////////////////////////////
-// Support Functions
-//////////////////////////////////////////////////////////////////
 
 
 #[cfg(test)]
@@ -255,10 +244,10 @@ mod tests {
         let test_coordinate: Coordinate = Coordinate{x: 0, y: 0};
         let mine_coordinate: HashSet<Coordinate> = HashSet::from([test_coordinate]);
         let player_coordinate = Coordinate{ x: 0, y: 2 };
-        let mut test_board: Board = Board::new_test(2, 2, mine_coordinate); // ownership of mine_coordinate moved here
+        let mut test_board: Board = Board::new_test(3, 3, mine_coordinate); // ownership of mine_coordinate moved here
 
         test_board.reveal(&player_coordinate);
-        assert_eq!(test_board.board_map.get(&test_coordinate).unwrap(), &TileStatus::Revealed(Tile::Hint(0)))
+        assert_eq!(test_board.board_map.get(&player_coordinate).unwrap(), &TileStatus::Revealed(Tile::Hint(0)))
     }
 
     #[test]
@@ -288,5 +277,9 @@ mod tests {
         // (0,2) == Revealed(0)
         let neighbor_coordinate = Coordinate{ x: 0, y: 1 };
         assert_eq!(updated_board.board_map.get(&neighbor_coordinate).unwrap(), &TileStatus::Revealed(Tile::Hint(1)));
+        assert_eq!(updated_board.board_map.get(&Coordinate{ x: 2, y: 2 }).unwrap(), &TileStatus::Revealed(Tile::Hint(0)));
+        assert_eq!(updated_board.board_map.get(&Coordinate{ x: 1, y: 2 }).unwrap(), &TileStatus::Revealed(Tile::Hint(0)));
+        assert_eq!(updated_board.board_map.get(&Coordinate{ x: 0, y: 2 }).unwrap(), &TileStatus::Revealed(Tile::Hint(0)));
+        assert_eq!(updated_board.board_map.get(&Coordinate{ x: 0, y: 1 }).unwrap(), &TileStatus::Revealed(Tile::Hint(1)));
     }
 }
