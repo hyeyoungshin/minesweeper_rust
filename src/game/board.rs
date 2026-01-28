@@ -146,51 +146,80 @@ impl Board {
     }
 
     // Updates the board in place
-    //  - `mut self` (instead of `&mut self`): after an update, the previous board state is gone
-    //  - `player_action`` is assumed to have been validated
-    pub fn update(mut self, player_action: &PlayerAction) -> Board {
+    //  - `self` instead of `mut self` for functional update
+    //  - `player_action` is assumed to have been validated
+    pub fn update(self, player_action: &PlayerAction) -> Board {
         let player_coordinate = player_action.coordinate;
+        let mut updated_board_map = self.board_map.clone();
 
-        match player_action.action {
-            Action::Reveal => self.reveal(&player_coordinate),
-            Action::Flag => { self.board_map.insert(player_coordinate, TileStatus::Flagged); },
-            Action::Unflag => { self.board_map.insert(player_coordinate, TileStatus::Hidden); }
+        updated_board_map = match player_action.action {
+            Action::Reveal => self.reveal(&player_coordinate, updated_board_map),
+            Action::Flag => { updated_board_map.insert(player_coordinate, TileStatus::Flagged); updated_board_map},
+            Action::Unflag => { updated_board_map.insert(player_coordinate, TileStatus::Hidden); updated_board_map}
+        };
+
+        Board {
+            h_size: self.h_size,
+            v_size: self.v_size,
+            board_map: updated_board_map,
+            mine_coordinates: self.mine_coordinates
         }
-
-        self
     }
 
 
-    fn reveal_all(&mut self, neighbors: &[Coordinate]) {
-        match neighbors {
-            [] => (),
+    fn reveal_all(&self, hidden_neighbors: Vec<Coordinate>, board_map: BoardMap) -> BoardMap {
+        match hidden_neighbors.as_slice() {
+            [] => board_map,
             [head, tail @..] => {
-                self.reveal(head);
-                self.reveal_all(tail);
+                let updated_board_map = self.reveal(head, board_map);
+                self.reveal_all(tail.to_vec(), updated_board_map)
             }
         }
     }
 
-    fn reveal(&mut self, coordinate: &Coordinate) {
-        let current_tile = self.board_map.get(coordinate).unwrap();
-        match current_tile  {
-            TileStatus::Hidden => {
-                if self.is_mine(coordinate) {   
-                    self.board_map.insert(*coordinate, TileStatus::Revealed(Tile::Mine));
+    fn reveal(&self, coordinate: &Coordinate, board_map: BoardMap) -> BoardMap {
+        let tile_status = board_map.get(coordinate);
 
-                } else {
-                    let hint = self.num_mines_nearby(coordinate);
-                    self.board_map.insert(*coordinate, TileStatus::Revealed(Tile::Hint(hint)));
-                    
-                    if hint == 0 {
-                        let neighbors = self.neighboring_coordinates(coordinate);
-                        self.reveal_all(&neighbors);
-                    } 
-                }
+        match tile_status {
+            None => {
+                println!("none at {:?}", coordinate);
+                board_map
             },
-            // revealing a tile that's not hidden does not do anything
-            _ => ()
-        }
+            Some(tile) => {
+                match tile  {
+                    TileStatus::Hidden => {
+                        let updated_tile_status = 
+                            if self.is_mine(coordinate) {   
+                                TileStatus::Revealed(Tile::Mine) 
+                            } else {
+
+                                let num_mines = self.num_mines_nearby(coordinate);
+
+                                TileStatus::Revealed(Tile::Hint(num_mines))
+                            };
+
+                        let mut board_map_copy = board_map; 
+
+                        board_map_copy.insert(*coordinate, updated_tile_status);
+
+                        // handle hint = 0 case       
+                        if updated_tile_status == TileStatus::Revealed(Tile::Hint(0)) {
+                            let hidden_neighbors = self.neighboring_coordinates(coordinate)
+                                .into_iter() // Consume the Vec, not borrow it
+                                .filter(|n| matches!(board_map_copy.get(&n), Some(TileStatus::Hidden)))
+                                .collect();
+
+                            self.reveal_all(hidden_neighbors, board_map_copy)
+                        } else{
+                            board_map_copy
+                        }
+                    },
+                    // revealing a tile that's not hidden does not do anything
+                    _ => board_map
+                }
+            }
+        }        
+        
     }
 
     pub fn validate_size(h_size: i32, v_size: i32) -> Result<(u32, u32), ValidationError> {
@@ -241,23 +270,22 @@ mod tests {
 
     #[test]
     fn test_reveal() {
-        let test_coordinate: Coordinate = Coordinate{x: 0, y: 0};
-        let mine_coordinate: HashSet<Coordinate> = HashSet::from([test_coordinate]);
-        let player_coordinate = Coordinate{ x: 0, y: 2 };
-        let mut test_board: Board = Board::new_test(3, 3, mine_coordinate); // ownership of mine_coordinate moved here
+        let mine_coordinate: HashSet<Coordinate> = HashSet::from([Coordinate{x: 0, y: 0}]);
+        let player_coordinate = Coordinate{ x: 0, y: 1 };
+        let test_board: Board = Board::new_test(3, 3, mine_coordinate);
 
-        test_board.reveal(&player_coordinate);
-        assert_eq!(test_board.board_map.get(&player_coordinate).unwrap(), &TileStatus::Revealed(Tile::Hint(0)))
+
+        let updated_board = test_board.reveal(&player_coordinate, test_board.board_map.clone());
+        assert_eq!(updated_board.get(&player_coordinate).unwrap(), &TileStatus::Revealed(Tile::Hint(1)))
     }
 
     #[test]
-    fn test_reveal_neighbor() {
-        let test_coordinate: Coordinate = Coordinate{x: 0, y: 0};
-        let mine_coordinate: HashSet<Coordinate> = HashSet::from([test_coordinate]);
-        let mut test_board: Board = Board::new_test(2, 2, mine_coordinate); // ownership of mine_coordinate moved here
+    fn test_reveal_all() {
+        let mine_coordinate: HashSet<Coordinate> = HashSet::from([Coordinate{x: 0, y: 0}]);
+        let test_board: Board = Board::new_test(3, 3, mine_coordinate); // ownership of mine_coordinate moved here
 
-        test_board.reveal(&test_coordinate);
-        assert_eq!(test_board.board_map.get(&test_coordinate).unwrap(), &TileStatus::Revealed(Tile::Mine))
+        let updated_board = test_board.reveal(&Coordinate{x: 0, y: 2},test_board.board_map.clone());
+        assert_eq!(updated_board.get(&Coordinate{x: 0, y: 1}).unwrap(), &TileStatus::Revealed(Tile::Hint(1)))
     }
 
     #[test]
@@ -276,6 +304,7 @@ mod tests {
         let updated_board = test_board.update(&PlayerAction{ coordinate: player_coordinate, action: Action::Reveal });
         // (0,2) == Revealed(0)
         let neighbor_coordinate = Coordinate{ x: 0, y: 1 };
+        
         assert_eq!(updated_board.board_map.get(&neighbor_coordinate).unwrap(), &TileStatus::Revealed(Tile::Hint(1)));
         assert_eq!(updated_board.board_map.get(&Coordinate{ x: 2, y: 2 }).unwrap(), &TileStatus::Revealed(Tile::Hint(0)));
         assert_eq!(updated_board.board_map.get(&Coordinate{ x: 1, y: 2 }).unwrap(), &TileStatus::Revealed(Tile::Hint(0)));
