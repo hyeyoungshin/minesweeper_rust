@@ -148,7 +148,7 @@ impl Board {
     // Updates the board in place
     //  - `self` instead of `mut self` for functional update
     //  - `player_action` is assumed to have been validated
-    pub fn update(self, player_action: &PlayerAction) -> Board {
+    pub fn update(&self, player_action: &PlayerAction) -> Board {
         let player_coordinate = player_action.coordinate;
         let mut updated_board_map = self.board_map.clone();
 
@@ -162,7 +162,7 @@ impl Board {
             h_size: self.h_size,
             v_size: self.v_size,
             board_map: updated_board_map,
-            mine_coordinates: self.mine_coordinates
+            mine_coordinates: self.mine_coordinates.clone()
         }
     }
 
