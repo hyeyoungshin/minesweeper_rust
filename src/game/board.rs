@@ -153,7 +153,7 @@ impl Board {
         let mut updated_board_map = self.board_map.clone();
 
         updated_board_map = match player_action.action {
-            Action::Reveal => self.reveal(&player_coordinate, updated_board_map),
+            Action::Reveal => self.reveal(&player_coordinate, updated_board_map), // takes care of hint = 0 case
             Action::Flag => { updated_board_map.insert(player_coordinate, TileStatus::Flagged); updated_board_map},
             Action::Unflag => { updated_board_map.insert(player_coordinate, TileStatus::Hidden); updated_board_map}
         };
@@ -166,7 +166,6 @@ impl Board {
         }
     }
 
-
     fn reveal_all(&self, hidden_neighbors: Vec<Coordinate>, board_map: BoardMap) -> BoardMap {
         match hidden_neighbors.as_slice() {
             [] => board_map,
@@ -178,49 +177,45 @@ impl Board {
     }
 
     fn reveal(&self, coordinate: &Coordinate, board_map: BoardMap) -> BoardMap {
-        let tile_status = board_map.get(coordinate);
+        debug_assert!(self.is_valid_coordinate(coordinate), "Invalid coordinate");
 
-        match tile_status {
-            None => {
-                println!("none at {:?}", coordinate);
-                board_map
-            },
-            Some(tile) => {
-                match tile  {
-                    TileStatus::Hidden => {
-                        let updated_tile_status = 
-                            if self.is_mine(coordinate) {   
-                                TileStatus::Revealed(Tile::Mine) 
-                            } else {
+        let tile_status = board_map.get(coordinate)
+            .expect("board_map initialized with all valid coordinates");
 
-                                let num_mines = self.num_mines_nearby(coordinate);
-
-                                TileStatus::Revealed(Tile::Hint(num_mines))
-                            };
-
-                        let mut board_map_copy = board_map; 
-
-                        board_map_copy.insert(*coordinate, updated_tile_status);
-
-                        // handle hint = 0 case       
-                        if updated_tile_status == TileStatus::Revealed(Tile::Hint(0)) {
-                            let hidden_neighbors = self.neighboring_coordinates(coordinate)
-                                .into_iter() // Consume the Vec, not borrow it
-                                .filter(|n| matches!(board_map_copy.get(&n), Some(TileStatus::Hidden)))
-                                .collect();
-
-                            self.reveal_all(hidden_neighbors, board_map_copy)
-                        } else{
-                            board_map_copy
-                        }
-                    },
-                    // revealing a tile that's not hidden does not do anything
-                    _ => board_map
-                }
-            }
-        }        
         
-    }
+        match tile_status  {
+            TileStatus::Hidden => {
+                let updated_tile_status = 
+                    if self.is_mine(coordinate) {   
+                        TileStatus::Revealed(Tile::Mine) 
+                    } else {
+                        let num_mines = self.num_mines_nearby(coordinate);
+                        TileStatus::Revealed(Tile::Hint(num_mines))
+                    };
+
+                // shadowing board_map to be mutable
+                let mut board_map = board_map; 
+
+                board_map.insert(*coordinate, updated_tile_status);
+
+                // handle hint = 0 case       
+                if updated_tile_status == TileStatus::Revealed(Tile::Hint(0)) {
+                    let hidden_neighbors = self.neighboring_coordinates(coordinate)
+                        .into_iter() // Consume the Vec, not borrow it
+                        .filter(|n| matches!(board_map.get(&n), Some(TileStatus::Hidden)))
+                        .collect();
+
+                    self.reveal_all(hidden_neighbors, board_map)
+                } else{
+                    board_map
+                }
+            },
+            // revealing a tile that's not hidden does not do anything
+            _ => board_map
+        }    
+    }        
+        
+
 
     pub fn validate_size(h_size: i32, v_size: i32) -> Result<(u32, u32), ValidationError> {
         if h_size > MAX_SIZE as i32 && v_size > MAX_SIZE as i32 {
@@ -229,6 +224,40 @@ impl Board {
             Err(ValidationError::NegativeSize)
         } else {
             Ok((h_size as u32, v_size as u32))
+        }
+    }
+
+    // This function validates player's chosen coordinate 
+    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, ValidationError> {        
+        if self.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
+            let tile_status = self.board_map.get(coordinate)
+                .expect("Coordinate should be valid and board_map should contain all valid coordinates");
+
+            match tile_status {
+                TileStatus::Revealed(_) => Err(ValidationError::TileRevealed),
+                _ => Ok(*coordinate)
+            }
+        } else {
+           Err(ValidationError::OutOfBounds)
+        }
+    }
+
+    // Boolean helper for internal use / assertions
+    fn is_valid_coordinate(&self, coord: &Coordinate) -> bool {
+        self.validate_coordinate(coord).is_ok()
+    }
+
+    pub fn print(&self) {
+        for y in 0..self.v_size {
+            for x in 0..self.h_size {
+                match self.board_map.get(&Coordinate{ x, y }).unwrap() {
+                    TileStatus::Hidden => print!("? "),
+                    TileStatus::Flagged => print!("! "),
+                    TileStatus::Revealed(Tile::Hint(n)) => print!("{} ", n),
+                    TileStatus::Revealed(Tile::Mine) => print!("* ")
+                }
+            }
+            println!();
         }
     }
 }

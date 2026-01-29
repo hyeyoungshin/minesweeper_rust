@@ -27,9 +27,8 @@ fn main() -> io::Result<()> {
         // 3. update the game
         game = game.update(&PlayerAction{ coordinate: player_coordinate, action: player_action });
 
-        // 4. print player's board
-        // let player_board = game.board.get_player_board();
-        // player_board.print();
+        // 4. print board
+        game.board.print();
     }
 
     end_game(&game);

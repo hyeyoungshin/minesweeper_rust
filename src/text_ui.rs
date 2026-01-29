@@ -87,33 +87,20 @@ pub fn get_coordinate(game: &Game) -> io::Result<Coordinate> {
         let mut player_input = String::new();
         io::stdin().read_line(&mut player_input)?;
          
-        // Approach 1:
-        // This chains parse and validate together
-        // match parse_coordinate(player_input)
-        //     .ok()
-        //     .and_then(|coord| game.validate_coordinate(&coord))
-        // {
-        //     Some(coordinate) => return Ok(coordinate),
-        //     None => println!("Invalid coordinate"),
-        // }
-        
-        // Approach 2: Better design because more explicit 
-        // This handles both error sources separately, and preserves error messages.
-        
         match parse_input(player_input) {
             Ok(coord) => {
-                match game.validate_coordinate(&coord) {
+                match game.board.validate_coordinate(&coord) {
                     Ok(coord) => return Ok(coord), // all match arms return ()
                     Err(value_error) => match value_error {
-                        ValidationError::OutOfBounds => {println!("coordinate out of bounds");},
-                        ValidationError::TileRevealed => {println!("tile at {:?} already revealed", coord)},
-                        _ => {panic!("should not be here!")}
+                        ValidationError::OutOfBounds => { println!("coordinate out of bounds"); },
+                        ValidationError::TileRevealed => { println!("tile at {:?} already revealed", coord) },
+                        _ => { panic!("should not be here!") }
                     }
                 }
             }, 
             Err(parse_error) => match parse_error {
-                ParseError::BadFormat => {println!("Expected exactly two comma-separated integers");},
-                ParseError::NotNumber(_) => {println!("Not number");}
+                ParseError::BadFormat => { println!("Expected exactly two comma-separated integers"); },
+                ParseError::NotNumber(_) => { println!("Not number"); }
             }
         }
     }
