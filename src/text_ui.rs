@@ -1,5 +1,6 @@
 use crate::game::*;
 use crate::game::board::*;
+use crate::game::player::*;
 
 use std::io;
 
@@ -52,7 +53,6 @@ pub fn parse_action(player_input: String) -> Result<Action, Box<dyn std::error::
     match player_input.trim() {
         "Reveal" => Ok(Action::Reveal),
         "Flag" => Ok(Action::Flag),
-        "Unflag" => Ok(Action::Unflag),
         _ => Err("Wrong action command".into())
     }
 }
@@ -124,6 +124,15 @@ pub fn get_action(game: &Game, coordinate: &Coordinate) -> io::Result<Action> {
     }
 }
 
+pub fn get_id() -> io::Result<String> {
+    println!("Enter your id");
+
+    let mut player_input = String::new();
+    io::stdin().read_line(&mut player_input)?; // catches erros from OS        
+    
+    return Ok(player_input)
+}
+
 pub fn get_difficulty() -> io::Result<Difficulty> {
     println!("Enter the level of difficulty: Easy({}), Medium({}), Hard({})", EASY, MEDIUM, HARD);
 
@@ -147,6 +156,9 @@ pub fn parse_difficulty(player_input: String) -> Result<Difficulty, Box<dyn std:
     }
 }
 
+pub fn start_game() {
+    println!("Let's play minesweeper game!");
+}
 
 pub fn end_game(game: &Game) {
     match game.status {

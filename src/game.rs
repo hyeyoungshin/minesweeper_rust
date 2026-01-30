@@ -1,10 +1,12 @@
 pub mod board; 
+pub mod player;
 
 use board::Board;
 use board::Coordinate;
+use board::Tile;
 use board::TileStatus;
-use board::*;
-use crate::text_ui::ValidationError;
+
+use player::*;
 
 use std::collections::HashSet;
 
@@ -25,18 +27,6 @@ pub enum Difficulty {
     Easy,
     Medium,
     Hard
-}
-
-pub struct PlayerAction {
-    pub coordinate: Coordinate,
-    pub action: Action, 
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Action{
-    Reveal, 
-    Flag, 
-    Unflag
 }
 
 impl Game {
@@ -110,23 +100,11 @@ impl Game {
 
         match (tile_status, action) {
             (TileStatus::Hidden, Action::Flag | Action::Reveal) => Some(action),
-            (TileStatus::Flagged, Action::Unflag) => Some(action),
+            // (TileStatus::Flagged, Action::Unflag) => Some(action),
             _ => None
         }
     }
 
-}
-
-impl Action {
-    // This function picks an Action randomly. Used for automatic play.
-    pub fn random_action() -> Action {
-        use rand::Rng;
-        match rand::thread_rng().gen_range(0..3) {
-            0 => Action::Reveal,
-            1 => Action::Flag,
-            _ => Action::Unflag,
-        }
-    }
 }
 
 
@@ -139,9 +117,11 @@ mod tests {
         let mine_coordinates = HashSet::from([Coordinate{ x: 0, y: 0}, Coordinate{ x: 1, y: 1}]);
 
         let mut test = Game::new_test(2,2, mine_coordinates);
+        let player = Player::new("hyeyoung".to_string(), 0);
 
-        test = test.update(&PlayerAction{ coordinate: Coordinate{x: 0, y: 1}, action: Action::Reveal });
-        test = test.update(&PlayerAction{ coordinate: Coordinate{x: 1, y: 0}, action: Action::Reveal });
+        // TODO: player.clone() is annoying. Find a way to avoid it?
+        test = test.update(&PlayerAction{ player: player.clone(), coordinate: Coordinate{x: 0, y: 1}, action: Action::Reveal });
+        test = test.update(&PlayerAction{ player: player.clone(), coordinate: Coordinate{x: 1, y: 0}, action: Action::Reveal });
 
         assert_eq!(test.status, GameStatus::Win);
     }

@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use crate::game::Difficulty;
 use crate::game::PlayerAction;
 use crate::game::Action;
+use crate::game::Player;
 use crate::text_ui::ValidationError;
 
 // Board's vertical and horizontal max size 
@@ -22,12 +23,19 @@ pub struct Board {
     mine_coordinates: HashSet<Coordinate>
 }
 
+pub struct PlayerBoard {
+    pub h_size: u32, 
+    pub v_size: u32,
+    pub board_map: BoardMap
+}   
 //TODO: think about communication between server and players
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+type PlayerId = String;
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum TileStatus {
     Hidden,
-    Flagged,
+    Flagged(PlayerId),
     Revealed(Tile)
 }
 
@@ -150,12 +158,12 @@ impl Board {
     //  - `player_action` is assumed to have been validated
     pub fn update(&self, player_action: &PlayerAction) -> Board {
         let player_coordinate = player_action.coordinate;
+        let player_id = player_action.player.id.clone();
         let mut updated_board_map = self.board_map.clone();
 
         updated_board_map = match player_action.action {
             Action::Reveal => self.reveal(&player_coordinate, updated_board_map), // takes care of hint = 0 case
-            Action::Flag => { updated_board_map.insert(player_coordinate, TileStatus::Flagged); updated_board_map},
-            Action::Unflag => { updated_board_map.insert(player_coordinate, TileStatus::Hidden); updated_board_map}
+            Action::Flag => { updated_board_map.insert(player_coordinate, TileStatus::Flagged(player_id)); updated_board_map},
         };
 
         Board {
@@ -194,12 +202,15 @@ impl Board {
                     };
 
                 // shadowing board_map to be mutable
-                let mut board_map = board_map; 
+                let mut board_map = board_map;
+                
+                // handle hint = 0 case
+                let is_zero_hint =
+                    matches!(updated_tile_status, TileStatus::Revealed(Tile::Hint(0)));
 
                 board_map.insert(*coordinate, updated_tile_status);
 
-                // handle hint = 0 case       
-                if updated_tile_status == TileStatus::Revealed(Tile::Hint(0)) {
+                if is_zero_hint {
                     let hidden_neighbors = self.neighboring_coordinates(coordinate)
                         .into_iter() // Consume the Vec, not borrow it
                         .filter(|n| matches!(board_map.get(&n), Some(TileStatus::Hidden)))
@@ -252,7 +263,7 @@ impl Board {
             for x in 0..self.h_size {
                 match self.board_map.get(&Coordinate{ x, y }).unwrap() {
                     TileStatus::Hidden => print!("? "),
-                    TileStatus::Flagged => print!("! "),
+                    TileStatus::Flagged(player_id) => print!("!, {} ", player_id),
                     TileStatus::Revealed(Tile::Hint(n)) => print!("{} ", n),
                     TileStatus::Revealed(Tile::Mine) => print!("* ")
                 }
@@ -291,10 +302,12 @@ mod tests {
         let mine_coordinate: HashSet<Coordinate> = HashSet::from([test_coordinate]);
         let test_board: Board = Board::new_test(2, 2, mine_coordinate); // ownership of mine_coordinate moved here
 
-        let updated_board = test_board.update(&PlayerAction{coordinate: test_coordinate, action: Action::Flag});
+        let player = Player::new("hyeyoung".to_string(), 0);
+
+        let updated_board = test_board.update(&PlayerAction{player, coordinate: test_coordinate, action: Action::Flag});
         let updated_tile_status = updated_board.board_map.get(&test_coordinate);
 
-        assert_eq!(*updated_tile_status.unwrap(), TileStatus::Flagged)
+        assert_eq!(*updated_tile_status.unwrap(), TileStatus::Flagged("hyeyoung".to_string()))
     }
 
     #[test]
@@ -329,8 +342,9 @@ mod tests {
     fn test_reveal_0_reveal_neighbor() {
         let test_board = create_3x3();
         let player_coordinate = Coordinate{ x: 0, y: 2 };
+        let player = Player::new("hyeyoung".to_string(), 0);
         // reveal (0,2)
-        let updated_board = test_board.update(&PlayerAction{ coordinate: player_coordinate, action: Action::Reveal });
+        let updated_board = test_board.update(&PlayerAction{ player, coordinate: player_coordinate, action: Action::Reveal });
         // (0,2) == Revealed(0)
         let neighbor_coordinate = Coordinate{ x: 0, y: 1 };
         
