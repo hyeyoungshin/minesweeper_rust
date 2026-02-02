@@ -3,47 +3,134 @@ use crate::game::board::*;
 use crate::game::player::*;
 
 use std::io;
+use std::fmt;
 
 #[derive(Debug)]
-pub enum ParseError {
+pub enum ParseErr {
     BadFormat,
-    NotNumber(std::num::ParseIntError),
+    NotNum, //(std::num::ParseIntError),
+    NegativeNum
 }
 
-pub enum ValidationError {
-    OutOfBounds,
-    TileRevealed,
+// Validation error types
+#[derive(Debug)]
+pub enum SizeErr {
     MaxExceeded,
     NegativeSize
 }
 
-pub trait FromPair {
-    fn from_pair(x: i32, y: i32) -> Self; // x, y are i32 to handle negative case in validation, not parsing
+#[derive(Debug)]
+pub enum CoordinateErr {
+    OutOfBounds,
+    TileRevealed,
+    TileFlagged
 }
 
-impl FromPair for Coordinate {
-    fn from_pair(x: i32, y: i32) -> Self {
-        Coordinate { x: x as u32, y: y as u32 } // non-negative i32 to u32 is ok!
+const BOARD_MAX_SIZE: u32 = 25;
+
+impl fmt::Display for ParseErr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ParseErr::BadFormat => write!(f, "Expected exactly two comma-separated positive number"),
+            ParseErr::NotNum => write!(f, "Not a number"),
+            ParseErr::NegativeNum => write!(f, "Negative number")
+        }
     }
 }
 
-impl FromPair for (i32, i32) {
-    fn from_pair(x: i32, y: i32) -> Self {
-        (x, y)
+impl fmt::Display for SizeErr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SizeErr::MaxExceeded => write!(f, "Max size exceeded"),
+            SizeErr::NegativeSize => write!(f, "Board dimensions must be positive"),
+        }
     }
 }
 
-pub fn parse_input<T: FromPair> (player_input: String) -> Result<T, ParseError> {
+impl fmt::Display for CoordinateErr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CoordinateErr::OutOfBounds => write!(f, "Coordinate out of bounds"),
+            CoordinateErr::TileRevealed => write!(f, "Tile is already revealed"),
+            CoordinateErr::TileFlagged => write!(f, "Tile is flagged"),
+        }
+    }
+}
+
+// pub trait FromPair {
+//     fn from_pair(x: i32, y: i32) -> Self; // x, y are i32 to handle negative case in validation, not parsing
+// }
+
+// impl FromPair for Coordinate {
+//     fn from_pair(x: i32, y: i32) -> Self {
+//         Coordinate { x: x as u32, y: y as u32 } // non-negative i32 to u32 is ok!
+//     }
+// }
+
+// impl FromPair for (i32, i32) {
+//     fn from_pair(x: i32, y: i32) -> Self {
+//         (x, y)
+//     }
+// }
+
+// Prints the welcome message
+pub fn start_game() {
+    println!("Let's play minesweeper game!");
+}
+
+// Prints the end of game message
+pub fn end_game(game: &Game) {
+    match game.status {
+        GameStatus::Win => println!("You won!"),
+        GameStatus::Over => println!("You lost..."),
+        _ => {panic!("should not be here");}
+    }
+} 
+
+// Prompts a message to get a valid coordinate from player
+pub fn get_coordinate(game: &Game) -> io::Result<Coordinate> {
+    println!("Enter a coordinate: x,y");
+    // The loop continues until one branch hits return Ok(valid_coord)
+    loop {
+        let mut player_input = String::new();
+        io::stdin().read_line(&mut player_input)?;
+
+        let parsed_coord = match parse_coordinate(&player_input) {
+            Ok(coord) => coord,
+            Err(e) => {
+                println!("{e}. Try again.");
+                continue;
+            }
+        };
+         
+        match game.board.validate_coordinate(&parsed_coord) {
+            Ok(coord) => return Ok(coord),
+            Err(e) => println!("{e}. Try again."),
+        }
+    }
+}
+
+
+// Parses player's inputs from the console
+// For example, 
+//   2,3 is ok
+//   4,k is error - not number
+//   1,2,3 is error - bad format
+pub fn parse_coordinate(player_input: &String) -> Result<Coordinate, ParseError> {
     let chars: Vec<&str> = player_input.trim().split(',').collect();
-    // TODO: -1,n triggers not number parse error
+
     match chars.len() {
         2 => {
             let x = chars[0].parse::<i32>()
-                .map_err(|e| ParseError::NotNumber(e))?;
+                .map_err(|e| ParseError::NotNum(e))?;
             let y = chars[1].parse::<i32>()
-                .map_err(|e| ParseError::NotNumber(e))?;
+                .map_err(|e| ParseError::NotNum(e))?;
 
-            Ok(T::from_pair(x, y))
+            if x > 0 && y > 0 {
+                Ok(Coordinate{ x: x as u32, y: y as u32 })
+            } else {
+                Err(ParseError::NegativeNum)
+            }
         },
         _ => Err(ParseError::BadFormat)
     }
@@ -62,50 +149,20 @@ pub fn get_board_size() -> io::Result<(u32, u32)> {
 
     loop {
         let mut player_input = String::new();
-        io::stdin().read_line(&mut player_input)?;
+        io::stdin()
+            .read_line(&mut player_input)?;
 
-        match parse_input(player_input) {
+        match validate_input(player_input) {
             Ok((hsize, vsize)) => match Board::validate_size(hsize, vsize) {
                 Ok(size) => return Ok(size),
-                Err(size_error) =>  match size_error {
-                    ValidationError::MaxExceeded => {println!("board too big");},
-                    _ => {panic!("should not be here!");}
-                }
-            },
-            Err(parse_error) => match parse_error {
-                ParseError::BadFormat => {println!("Expected exactly two comma-separated integers");},
-                ParseError::NotNumber(_) => {println!("Not number");}
-            }
+                Err(ValidationError::MaxExceeded) => { println!("board too big"); },
+                Err(e) => { println!("Validation error: {:?}", e); },
+                },
+            Err(ParseError::BadFormat ) => { println!("Expected exactly two comma-separated integers"); },
+            Err(ParseError::NotNumber(_)) => { println!("Not number"); }
         }
     }         
 }
-
-pub fn get_coordinate(game: &Game) -> io::Result<Coordinate> {
-    println!("Enter a coordinate: x,y");
-    // The loop continues until one branch hits return Ok(valid_coord)
-    loop {
-        let mut player_input = String::new();
-        io::stdin().read_line(&mut player_input)?;
-         
-        match parse_input(player_input) {
-            Ok(coord) => {
-                match game.board.validate_coordinate(&coord) {
-                    Ok(coord) => return Ok(coord), // all match arms return ()
-                    Err(value_error) => match value_error {
-                        ValidationError::OutOfBounds => { println!("coordinate out of bounds"); },
-                        ValidationError::TileRevealed => { println!("tile at {:?} already revealed", coord) },
-                        _ => { panic!("should not be here!") }
-                    }
-                }
-            }, 
-            Err(parse_error) => match parse_error {
-                ParseError::BadFormat => { println!("Expected exactly two comma-separated integers"); },
-                ParseError::NotNumber(_) => { println!("Not number"); }
-            }
-        }
-    }
-}
-
 
 pub fn get_action(game: &Game, coordinate: &Coordinate) -> io::Result<Action> {
     println!("Enter an action: Flag, Unflag, or Reveal");
@@ -124,11 +181,11 @@ pub fn get_action(game: &Game, coordinate: &Coordinate) -> io::Result<Action> {
     }
 }
 
-pub fn get_id() -> io::Result<String> {
-    println!("Enter your id");
+pub fn get_name() -> io::Result<String> {
+    println!("Enter your name");
 
     let mut player_input = String::new();
-    io::stdin().read_line(&mut player_input)?; // catches erros from OS        
+    io::stdin().read_line(&mut player_input)?;
     
     return Ok(player_input)
 }
@@ -156,14 +213,3 @@ pub fn parse_difficulty(player_input: String) -> Result<Difficulty, Box<dyn std:
     }
 }
 
-pub fn start_game() {
-    println!("Let's play minesweeper game!");
-}
-
-pub fn end_game(game: &Game) {
-    match game.status {
-        GameStatus::Win => println!("You won!"),
-        GameStatus::Over => println!("You lost..."),
-        _ => {panic!("should not be here");}
-    }
-} 

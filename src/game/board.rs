@@ -3,10 +3,10 @@ use std::collections::HashSet;
 
 
 use crate::game::Difficulty;
-use crate::game::PlayerAction;
-use crate::game::Action;
-use crate::game::Player;
-use crate::text_ui::ValidationError;
+use crate::game::player::*;
+use crate::text_ui::SizeErr;
+use crate::text_ui::CoordinateErr;
+
 
 // Board's vertical and horizontal max size 
 // It is set so that we can convert u32 to i32 safely during coordinate validation
@@ -30,12 +30,10 @@ pub struct PlayerBoard {
 }   
 //TODO: think about communication between server and players
 
-type PlayerId = String;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum TileStatus {
     Hidden,
-    Flagged(PlayerId),
+    Flagged(PlayerID),
     Revealed(Tile)
 }
 
@@ -158,12 +156,11 @@ impl Board {
     //  - `player_action` is assumed to have been validated
     pub fn update(&self, player_action: &PlayerAction) -> Board {
         let player_coordinate = player_action.coordinate;
-        let player_id = player_action.player.id.clone();
         let mut updated_board_map = self.board_map.clone();
 
         updated_board_map = match player_action.action {
             Action::Reveal => self.reveal(&player_coordinate, updated_board_map), // takes care of hint = 0 case
-            Action::Flag => { updated_board_map.insert(player_coordinate, TileStatus::Flagged(player_id)); updated_board_map},
+            Action::Flag => { updated_board_map.insert(player_coordinate, TileStatus::Flagged(player_action.player_id)); updated_board_map},
         };
 
         Board {
@@ -228,28 +225,29 @@ impl Board {
         
 
 
-    pub fn validate_size(h_size: i32, v_size: i32) -> Result<(u32, u32), ValidationError> {
+    pub fn validate_size(h_size: i32, v_size: i32) -> Result<(u32, u32), SizeErr> {
         if h_size > MAX_SIZE as i32 && v_size > MAX_SIZE as i32 {
-            Err(ValidationError::MaxExceeded)
+            Err(SizeErr::MaxExceeded)
         } else if h_size < 0 && v_size < 0 {
-            Err(ValidationError::NegativeSize)
+            Err(SizeErr::NegativeSize)
         } else {
             Ok((h_size as u32, v_size as u32))
         }
     }
 
     // This function validates player's chosen coordinate 
-    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, ValidationError> {        
+    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, CoordinateErr> {        
         if self.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
             let tile_status = self.board_map.get(coordinate)
-                .expect("Coordinate should be valid and board_map should contain all valid coordinates");
+                .expect("Board should contain all valid coordinates!");
 
             match tile_status {
-                TileStatus::Revealed(_) => Err(ValidationError::TileRevealed),
-                _ => Ok(*coordinate)
+                TileStatus::Revealed(_) => Err(CoordinateErr::TileRevealed),
+                TileStatus::Flagged(_) => Err(CoordinateErr::TileFlagged),
+                _ => Ok(*coordinate) // borrowed coordinate, can you return its value here?
             }
         } else {
-           Err(ValidationError::OutOfBounds)
+           Err(CoordinateErr::OutOfBounds)
         }
     }
 
@@ -302,12 +300,12 @@ mod tests {
         let mine_coordinate: HashSet<Coordinate> = HashSet::from([test_coordinate]);
         let test_board: Board = Board::new_test(2, 2, mine_coordinate); // ownership of mine_coordinate moved here
 
-        let player = Player::new("hyeyoung".to_string(), 0);
+        let player = Player::new("hyeyoung".to_string());
 
-        let updated_board = test_board.update(&PlayerAction{player, coordinate: test_coordinate, action: Action::Flag});
+        let updated_board = test_board.update(&PlayerAction{player_id: player.id, coordinate: test_coordinate, action: Action::Flag});
         let updated_tile_status = updated_board.board_map.get(&test_coordinate);
 
-        assert_eq!(*updated_tile_status.unwrap(), TileStatus::Flagged("hyeyoung".to_string()))
+        assert_eq!(*updated_tile_status.unwrap(), TileStatus::Flagged(player.id))
     }
 
     #[test]
@@ -342,9 +340,9 @@ mod tests {
     fn test_reveal_0_reveal_neighbor() {
         let test_board = create_3x3();
         let player_coordinate = Coordinate{ x: 0, y: 2 };
-        let player = Player::new("hyeyoung".to_string(), 0);
+        let player = Player::new("hyeyoung".to_string());
         // reveal (0,2)
-        let updated_board = test_board.update(&PlayerAction{ player, coordinate: player_coordinate, action: Action::Reveal });
+        let updated_board = test_board.update(&PlayerAction{ player_id: player.id, coordinate: player_coordinate, action: Action::Reveal });
         // (0,2) == Revealed(0)
         let neighbor_coordinate = Coordinate{ x: 0, y: 1 };
         
