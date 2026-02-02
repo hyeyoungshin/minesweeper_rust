@@ -5,6 +5,7 @@ use board::Board;
 use board::Coordinate;
 use board::Tile;
 use board::TileStatus;
+use crate::text_ui::InvalidErr;
 
 use player::*;
 
@@ -94,14 +95,13 @@ impl Game {
     }
     
     // This function validates player's chosen action for the tile at the coordinate
-    pub fn validate_action(&self, action: Action, coordinate: &Coordinate) -> Option<Action> {
+    pub fn validate_action(&self, action: Action, coordinate: &Coordinate) -> Result<Action, InvalidErr> {
         let tile_status = self.board.board_map.get(coordinate)
             .expect("Coordinate should be valid and board_map should contain all valid coordinates");
 
         match (tile_status, action) {
-            (TileStatus::Hidden, Action::Flag | Action::Reveal) => Some(action),
-            // (TileStatus::Flagged, Action::Unflag) => Some(action),
-            _ => None
+            (TileStatus::Hidden, Action::Flag | Action::Reveal) => Ok(action),
+            _ => Err(InvalidErr::InvalidAction),
         }
     }
 

@@ -4,13 +4,11 @@ use std::collections::HashSet;
 
 use crate::game::Difficulty;
 use crate::game::player::*;
-use crate::text_ui::SizeErr;
+use crate::text_ui::InvalidErr;
 use crate::text_ui::CoordinateErr;
+use crate::text_ui::BOARD_MAX_SIZE;
+use crate::text_ui::BoardSize;
 
-
-// Board's vertical and horizontal max size 
-// It is set so that we can convert u32 to i32 safely during coordinate validation
-const MAX_SIZE: u32 = i32::MAX as u32; // 2147483647 
 
 pub const EASY: f32 = 0.12;
 pub const MEDIUM: f32 = 0.15;
@@ -225,11 +223,9 @@ impl Board {
         
 
 
-    pub fn validate_size(h_size: i32, v_size: i32) -> Result<(u32, u32), SizeErr> {
-        if h_size > MAX_SIZE as i32 && v_size > MAX_SIZE as i32 {
-            Err(SizeErr::MaxExceeded)
-        } else if h_size < 0 && v_size < 0 {
-            Err(SizeErr::NegativeSize)
+    pub fn validate_size(h_size: u32, v_size: u32) -> Result<BoardSize, InvalidErr> {
+        if h_size > BOARD_MAX_SIZE && v_size > BOARD_MAX_SIZE {
+            Err(InvalidErr::InvalidBoardSize)
         } else {
             Ok((h_size as u32, v_size as u32))
         }
