@@ -117,11 +117,11 @@ mod tests {
         let mine_coordinates = HashSet::from([Coordinate{ x: 0, y: 0}, Coordinate{ x: 1, y: 1}]);
 
         let mut test = Game::new_test(2,2, mine_coordinates);
-        let player = Player::new("hyeyoung".to_string(), 0);
+        let player = Player::new("hyeyoung".to_string());
 
         // TODO: player.clone() is annoying. Find a way to avoid it?
-        test = test.update(&PlayerAction{ player: player.clone(), coordinate: Coordinate{x: 0, y: 1}, action: Action::Reveal });
-        test = test.update(&PlayerAction{ player: player.clone(), coordinate: Coordinate{x: 1, y: 0}, action: Action::Reveal });
+        test = test.update(&PlayerAction{ player_id: player.id, coordinate: Coordinate{x: 0, y: 1}, action: Action::Reveal });
+        test = test.update(&PlayerAction{ player_id: player.id, coordinate: Coordinate{x: 1, y: 0}, action: Action::Reveal });
 
         assert_eq!(test.status, GameStatus::Win);
     }

@@ -6,10 +6,11 @@ use crate::game::player::*;
 use crate::text_ui::*;
 use std::io;
 
+
 fn main() -> io::Result<()> {
     start_game();
 
-    let player = Player::new(get_id()?, 0);
+    let player = Player::new(get_name()?);
 
     let (h_size, v_size) = get_board_size()?;
     // TODO: validate input here too
@@ -28,7 +29,7 @@ fn main() -> io::Result<()> {
         println!("player action: {:?}", player_action);
 
         // 3. update the game
-        game = game.update(&PlayerAction{ player: player.clone(), coordinate: player_coordinate, action: player_action });
+        game = game.update(&PlayerAction{ player_id: player.id, coordinate: player_coordinate, action: player_action });
 
         // 4. print board
         game.board.print();
