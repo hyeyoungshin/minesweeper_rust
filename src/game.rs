@@ -66,7 +66,7 @@ impl Game {
     //     If so, game win
     //     If not, game continues
     pub fn update_status(player_action: &PlayerAction, board: &Board) -> GameStatus {
-        let current_tile = board.board_map.get(&player_action.coordinate).unwrap();
+        let current_tile = board.get_tile(&player_action.coordinate);
         
         match current_tile {
             TileStatus::Revealed(Tile::Mine) => GameStatus::Over,
@@ -84,7 +84,7 @@ impl Game {
     // Lose condition:
     // - You reveal a tile with a mine (game over)
     fn check_win(board: &Board) -> bool {
-        board.board_map.iter().all(|(coordinate, tile_status)| {
+        board.iter().all(|(coordinate, tile_status)| {
             board.is_mine(coordinate) || matches!(tile_status, TileStatus::Revealed(Tile::Hint(_)))
         })
     }
@@ -105,7 +105,7 @@ impl Game {
     // This function validates player's chosen coordinate 
     pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, ValidationError> {        
         if self.board.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
-            let tile_status = self.board.board_map.get(coordinate).unwrap();
+            let tile_status = self.board.get_tile(coordinate);
 
             match tile_status {
                 TileStatus::Revealed(_) => Err(ValidationError::TileRevealed),
@@ -118,7 +118,7 @@ impl Game {
     
     // This function validates player's chosen action for the tile at the coordinate
     pub fn validate_action(&self, action: Action, coordinate: &Coordinate) -> Option<Action> {
-        let tile_status = self.board.board_map.get(coordinate).unwrap();
+        let tile_status = self.board.get_tile(coordinate);
 
         match (tile_status, action) {
             (TileStatus::Hidden, Action::Flag | Action::Reveal) => Some(action),
