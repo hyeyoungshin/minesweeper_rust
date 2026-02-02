@@ -17,7 +17,7 @@ pub const HARD: f32 = 0.2;
 pub struct Board { 
     pub h_size: u32,  // horizontal size (grows to right)
     pub v_size: u32,  // vertical size (grows down)
-    pub board_map: HashMap<Coordinate, TileStatus>,
+    board_map: HashMap<Coordinate, TileStatus>,
     mine_coordinates: HashSet<Coordinate>
 }
 
@@ -83,6 +83,19 @@ impl Board {
         }
 
         board_map
+    }
+
+    pub fn get_tile(&self, coordinate: &Coordinate) -> &TileStatus {
+        // order of evaluation: call-by-value (like most programming languages but Haskell)
+        // instead of unwrap() or expect() use unwrap_or_else to
+        // - delay evaluation (in the case of expect) 
+        // - add custom panic message 
+        self.board_map.get(coordinate).unwrap_or_else(|| panic!("tile should be at {:?}", coordinate))
+    }
+
+    // use iterator interface instead of using a particular hashmap iterator
+    pub fn iter(&self) -> impl Iterator<Item = (&Coordinate, &TileStatus)> {
+        self.board_map.iter()
     }
 
     pub fn pick_mine_coordinates(h_size: u32, v_size: u32, difficulty: Difficulty) -> HashSet<Coordinate> {

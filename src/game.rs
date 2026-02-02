@@ -5,7 +5,8 @@ use board::Board;
 use board::Coordinate;
 use board::Tile;
 use board::TileStatus;
-use crate::text_ui::InvalidErr;
+use crate::text_ui::*;
+
 
 use player::*;
 
@@ -57,8 +58,7 @@ impl Game {
     //     If so, game win
     //     If not, game continues
     pub fn update_status(player_action: &PlayerAction, board: &Board) -> GameStatus {
-        let current_tile = board.board_map.get(&player_action.coordinate)
-            .expect("Coordinate should be valid and board_map should contain all valid coordinates");
+        let current_tile = board.get_tile(&player_action.coordinate);
         
         match current_tile {
             TileStatus::Revealed(Tile::Mine) => GameStatus::Over,
@@ -76,7 +76,7 @@ impl Game {
     // Lose condition:
     // - You reveal a tile with a mine (game over)
     fn check_win(board: &Board) -> bool {
-        board.board_map.iter().all(|(coordinate, tile_status)| {
+        board.iter().all(|(coordinate, tile_status)| {
             board.is_mine(coordinate) || matches!(tile_status, TileStatus::Revealed(Tile::Hint(_)))
         })
     }
@@ -93,11 +93,24 @@ impl Game {
             status: updated_status
         }
     }
+
+    // This function validates player's chosen coordinate 
+    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, InvalidErr> {        
+        if self.board.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
+            let tile_status = self.board.get_tile(coordinate);
+
+            match tile_status {
+                TileStatus::Revealed(_) => Err(InvalidErr::InvalidCoordinate(CoordinateErr::TileRevealed)),
+                _ => Ok(*coordinate)
+            }
+        } else {
+           Err(InvalidErr::InvalidCoordinate(CoordinateErr::OutOfBounds))
+        }
+    }
     
     // This function validates player's chosen action for the tile at the coordinate
     pub fn validate_action(&self, action: Action, coordinate: &Coordinate) -> Result<Action, InvalidErr> {
-        let tile_status = self.board.board_map.get(coordinate)
-            .expect("Coordinate should be valid and board_map should contain all valid coordinates");
+        let tile_status = self.board.get_tile(coordinate);
 
         match (tile_status, action) {
             (TileStatus::Hidden, Action::Flag | Action::Reveal) => Ok(action),
