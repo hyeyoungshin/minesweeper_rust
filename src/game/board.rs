@@ -3,13 +3,12 @@ use std::collections::HashSet;
 
 
 use crate::game::Difficulty;
-use crate::game::PlayerAction;
-use crate::game::Action;
-use crate::text_ui::ValidationError;
+use crate::game::player::*;
+use crate::text_ui::InvalidErr;
+use crate::text_ui::CoordinateErr;
+use crate::text_ui::BOARD_MAX_SIZE;
+use crate::text_ui::BoardSize;
 
-// Board's vertical and horizontal max size 
-// It is set so that we can convert u32 to i32 safely during coordinate validation
-const MAX_SIZE: u32 = i32::MAX as u32; // 2147483647 
 
 pub const EASY: f32 = 0.12;
 pub const MEDIUM: f32 = 0.15;
@@ -22,12 +21,17 @@ pub struct Board {
     mine_coordinates: HashSet<Coordinate>
 }
 
+pub struct PlayerBoard {
+    pub h_size: u32, 
+    pub v_size: u32,
+    pub board_map: BoardMap
+}   
 //TODO: think about communication between server and players
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TileStatus {
     Hidden,
-    Flagged,
+    Flagged(PlayerID),
     Revealed(Tile)
 }
 
@@ -154,8 +158,7 @@ impl Board {
 
         updated_board_map = match player_action.action {
             Action::Reveal => self.reveal(&player_coordinate, updated_board_map), // takes care of hint = 0 case
-            Action::Flag => { updated_board_map.insert(player_coordinate, TileStatus::Flagged); updated_board_map},
-            Action::Unflag => { updated_board_map.insert(player_coordinate, TileStatus::Hidden); updated_board_map}
+            Action::Flag => { updated_board_map.insert(player_coordinate, TileStatus::Flagged(player_action.player_id)); updated_board_map},
         };
 
         Board {
@@ -194,12 +197,15 @@ impl Board {
                     };
 
                 // shadowing board_map to be mutable
-                let mut board_map = board_map; 
+                let mut board_map = board_map;
+                
+                // handle hint = 0 case
+                let is_zero_hint =
+                    matches!(updated_tile_status, TileStatus::Revealed(Tile::Hint(0)));
 
                 board_map.insert(*coordinate, updated_tile_status);
 
-                // handle hint = 0 case       
-                if updated_tile_status == TileStatus::Revealed(Tile::Hint(0)) {
+                if is_zero_hint {
                     let hidden_neighbors = self.neighboring_coordinates(coordinate)
                         .into_iter() // Consume the Vec, not borrow it
                         .filter(|n| matches!(board_map.get(&n), Some(TileStatus::Hidden)))
@@ -217,28 +223,27 @@ impl Board {
         
 
 
-    pub fn validate_size(h_size: i32, v_size: i32) -> Result<(u32, u32), ValidationError> {
-        if h_size > MAX_SIZE as i32 && v_size > MAX_SIZE as i32 {
-            Err(ValidationError::MaxExceeded)
-        } else if h_size < 0 && v_size < 0 {
-            Err(ValidationError::NegativeSize)
+    pub fn validate_size(h_size: u32, v_size: u32) -> Result<BoardSize, InvalidErr> {
+        if h_size > BOARD_MAX_SIZE && v_size > BOARD_MAX_SIZE {
+            Err(InvalidErr::InvalidBoardSize)
         } else {
             Ok((h_size as u32, v_size as u32))
         }
     }
 
     // This function validates player's chosen coordinate 
-    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, ValidationError> {        
+    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, CoordinateErr> {        
         if self.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
             let tile_status = self.board_map.get(coordinate)
-                .expect("Coordinate should be valid and board_map should contain all valid coordinates");
+                .expect("Board should contain all valid coordinates!");
 
             match tile_status {
-                TileStatus::Revealed(_) => Err(ValidationError::TileRevealed),
-                _ => Ok(*coordinate)
+                TileStatus::Revealed(_) => Err(CoordinateErr::TileRevealed),
+                TileStatus::Flagged(_) => Err(CoordinateErr::TileFlagged),
+                _ => Ok(*coordinate) // borrowed coordinate, can you return its value here?
             }
         } else {
-           Err(ValidationError::OutOfBounds)
+           Err(CoordinateErr::OutOfBounds)
         }
     }
 
@@ -252,7 +257,7 @@ impl Board {
             for x in 0..self.h_size {
                 match self.board_map.get(&Coordinate{ x, y }).unwrap() {
                     TileStatus::Hidden => print!("? "),
-                    TileStatus::Flagged => print!("! "),
+                    TileStatus::Flagged(player_id) => print!("!, {} ", player_id),
                     TileStatus::Revealed(Tile::Hint(n)) => print!("{} ", n),
                     TileStatus::Revealed(Tile::Mine) => print!("* ")
                 }
@@ -291,10 +296,12 @@ mod tests {
         let mine_coordinate: HashSet<Coordinate> = HashSet::from([test_coordinate]);
         let test_board: Board = Board::new_test(2, 2, mine_coordinate); // ownership of mine_coordinate moved here
 
-        let updated_board = test_board.update(&PlayerAction{coordinate: test_coordinate, action: Action::Flag});
+        let player = Player::new("hyeyoung".to_string());
+
+        let updated_board = test_board.update(&PlayerAction{player_id: player.id, coordinate: test_coordinate, action: Action::Flag});
         let updated_tile_status = updated_board.board_map.get(&test_coordinate);
 
-        assert_eq!(*updated_tile_status.unwrap(), TileStatus::Flagged)
+        assert_eq!(*updated_tile_status.unwrap(), TileStatus::Flagged(player.id))
     }
 
     #[test]
@@ -329,8 +336,9 @@ mod tests {
     fn test_reveal_0_reveal_neighbor() {
         let test_board = create_3x3();
         let player_coordinate = Coordinate{ x: 0, y: 2 };
+        let player = Player::new("hyeyoung".to_string());
         // reveal (0,2)
-        let updated_board = test_board.update(&PlayerAction{ coordinate: player_coordinate, action: Action::Reveal });
+        let updated_board = test_board.update(&PlayerAction{ player_id: player.id, coordinate: player_coordinate, action: Action::Reveal });
         // (0,2) == Revealed(0)
         let neighbor_coordinate = Coordinate{ x: 0, y: 1 };
         
