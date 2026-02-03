@@ -166,6 +166,7 @@ impl Board {
         let updated_board_map = match player_action.action {
             Action::Reveal => self.reveal(&player_action.coordinate, self.board_map.clone()),
             Action::Flag => self.board_map.update(player_action.coordinate, TileStatus::Flagged(player_action.player_id)),
+            Action::Unflag => self.board_map.update(player_action.coordinate, TileStatus::Hidden),
         };
 
         Board {
@@ -244,31 +245,19 @@ impl Board {
         }
     }
 
-        // This function validates player's chosen coordinate 
-    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, InvalidErr> {        
-        if self.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
-            let tile_status = self.get_tile(coordinate);
+    
 
-            match tile_status {
-                TileStatus::Revealed(_) => Err(InvalidErr::InvalidCoordinate(CoordinateErr::TileRevealed)),
-                _ => Ok(*coordinate)
-            }
-        } else {
-           Err(InvalidErr::InvalidCoordinate(CoordinateErr::OutOfBounds))
-        }
-    }
-
-    // Boolean helper for internal use / assertions
-    fn is_valid_coordinate(&self, coord: &Coordinate) -> bool {
-        self.validate_coordinate(coord).is_ok()
-    }
+    // // Boolean helper for internal use / assertions
+    // fn is_valid_coordinate(&self, coord: &Coordinate) -> bool {
+    //     self.validate_coordinate(coord).is_ok()
+    // }
 
     pub fn print(&self) {
         for y in 0..self.v_size {
             for x in 0..self.h_size {
                 match self.board_map.get(&Coordinate{ x, y }).unwrap() {
                     TileStatus::Hidden => print!("? "),
-                    TileStatus::Flagged(player_id) => print!("!, {} ", player_id),
+                    TileStatus::Flagged(player_id) => print!("!,by {} ", player_id),
                     TileStatus::Revealed(Tile::Hint(n)) => print!("{} ", n),
                     TileStatus::Revealed(Tile::Mine) => print!("* ")
                 }

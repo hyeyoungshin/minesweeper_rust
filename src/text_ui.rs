@@ -79,7 +79,7 @@ pub fn end_game(game: &Game) {
 } 
 
 // Prompts a message to get a valid coordinate from player
-pub fn get_coordinate(game: &Game) -> io::Result<Coordinate> {
+pub fn get_coordinate(game: &Game, player: &Player) -> io::Result<Coordinate> {
     println!("Enter a coordinate: x,y");
     // The loop continues until one branch hits return Ok(valid_coord)
     loop {
@@ -93,7 +93,7 @@ pub fn get_coordinate(game: &Game) -> io::Result<Coordinate> {
             }
         };
          
-        match game.board.validate_coordinate(&parsed_coord) {
+        match game.validate_coordinate(&parsed_coord, player) {
             Ok(coord) => return Ok(coord),
             Err(e) => { 
                 try_again!(e);
@@ -117,7 +117,7 @@ pub fn parse_coordinate(player_input: &String) -> Result<Coordinate, ParseErr> {
             let y = chars[1].parse::<i32>()
                 .map_err(|_| ParseErr::NotNum)?;
 
-            if x > 0 && y > 0 {
+            if x >= 0 && y >= 0 {
                 Ok(Coordinate{ x: x as u32, y: y as u32 })
             } else {
                 Err(ParseErr::NegativeNum)
@@ -127,7 +127,7 @@ pub fn parse_coordinate(player_input: &String) -> Result<Coordinate, ParseErr> {
     }
 }
 
-pub fn get_action(game: &Game, coordinate: &Coordinate) -> io::Result<Action> {
+pub fn get_action(game: &Game, player: &Player, coordinate: Coordinate) -> io::Result<PlayerAction> {
     println!("Enter an action: Flag, Unflag, or Reveal");
 
     loop {
@@ -141,8 +141,10 @@ pub fn get_action(game: &Game, coordinate: &Coordinate) -> io::Result<Action> {
             }
         };
 
-        match game.validate_action(parsed_action, coordinate) {
-                Ok(action) => return Ok(action),
+        let player_action = PlayerAction{ player_id: player.id, coordinate, action: parsed_action };
+
+        match game.validate_action(player_action, &coordinate) {
+                Ok(player_action) => return Ok(player_action),
                 Err(invalid_err) => { 
                     try_again!(invalid_err) 
                 }
@@ -154,6 +156,7 @@ pub fn parse_action(player_input: String) -> Result<Action, ParseErr> {
     match player_input.trim() {
         "Reveal" => Ok(Action::Reveal),
         "Flag" => Ok(Action::Flag),
+        "Unflag" => Ok(Action::Unflag),
         _ => Err(ParseErr::BadFormat)
     }
 }

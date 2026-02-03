@@ -21,15 +21,15 @@ fn main() -> io::Result<()> {
     ////////// interactive game loop //////////
     while game.status == GameStatus::Continue {
         // 1. get player's coordinate
-        let player_coordinate = get_coordinate(&game)?;
+        let player_coordinate = get_coordinate(&game, &player)?;
         println!("player coordinate: {:?}", player_coordinate);
         
         // 2. get player's action
-        let player_action = get_action(&game, &player_coordinate)?;
+        let player_action = get_action(&game, &player, player_coordinate)?;
         println!("player action: {:?}", player_action);
 
         // 3. update the game
-        game = game.update(&PlayerAction{ player_id: player.id, coordinate: player_coordinate, action: player_action });
+        game = game.update(&player_action);
 
         // 4. print board
         game.board.print();
