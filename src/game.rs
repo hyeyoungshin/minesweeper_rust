@@ -93,20 +93,6 @@ impl Game {
             status: updated_status
         }
     }
-
-    // This function validates player's chosen coordinate 
-    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, InvalidErr> {        
-        if self.board.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
-            let tile_status = self.board.get_tile(coordinate);
-
-            match tile_status {
-                TileStatus::Revealed(_) => Err(InvalidErr::InvalidCoordinate(CoordinateErr::TileRevealed)),
-                _ => Ok(*coordinate)
-            }
-        } else {
-           Err(InvalidErr::InvalidCoordinate(CoordinateErr::OutOfBounds))
-        }
-    }
     
     // This function validates player's chosen action for the tile at the coordinate
     pub fn validate_action(&self, action: Action, coordinate: &Coordinate) -> Result<Action, InvalidErr> {

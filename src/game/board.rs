@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use im::HashMap;
+use std::rc::Rc;
 use std::collections::HashSet;
 
 
@@ -18,15 +19,11 @@ pub struct Board {
     pub h_size: u32,  // horizontal size (grows to right)
     pub v_size: u32,  // vertical size (grows down)
     board_map: HashMap<Coordinate, TileStatus>,
-    mine_coordinates: HashSet<Coordinate>
+    mine_coordinates: Rc<HashSet<Coordinate>> // Shared, immutable
 }
 
-pub struct PlayerBoard {
-    pub h_size: u32, 
-    pub v_size: u32,
-    pub board_map: BoardMap
-}   
-//TODO: think about communication between server and players
+// TODO: think about communication between server and players
+// Add a representation of board for players
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TileStatus {
@@ -49,6 +46,7 @@ type BoardMap = HashMap<Coordinate, TileStatus>;
 
 impl Board {
     pub fn new(h_size: u32, v_size: u32, difficulty: Difficulty) -> Board {
+        // initializes empty hashmap
         let board_map = Board::initialize_board_map(h_size, v_size);
 
         // place mines
@@ -56,7 +54,7 @@ impl Board {
             h_size,
             v_size,
             board_map,
-            mine_coordinates: Board::pick_mine_coordinates(h_size, v_size, difficulty)
+            mine_coordinates: Rc::new(Board::random_mine_coordinates(h_size, v_size, difficulty)),
         }
     }
     
@@ -69,7 +67,7 @@ impl Board {
             h_size: h_size,
             v_size: v_size,
             board_map, 
-            mine_coordinates: mine_coordinates
+            mine_coordinates: Rc::new(mine_coordinates),
         }        
     }
 
@@ -93,12 +91,13 @@ impl Board {
         self.board_map.get(coordinate).unwrap_or_else(|| panic!("tile should be at {:?}", coordinate))
     }
 
-    // use iterator interface instead of using a particular hashmap iterator
+    // Provides an interface for board_map
+    // - uses Iterator interface instead of HashMap iterator
     pub fn iter(&self) -> impl Iterator<Item = (&Coordinate, &TileStatus)> {
         self.board_map.iter()
     }
 
-    pub fn pick_mine_coordinates(h_size: u32, v_size: u32, difficulty: Difficulty) -> HashSet<Coordinate> {
+    pub fn random_mine_coordinates(h_size: u32, v_size: u32, difficulty: Difficulty) -> HashSet<Coordinate> {
         let mut random_coordinates: HashSet<Coordinate> = HashSet::new();
         let board_size = (h_size * v_size) as f32; // To compare and multiply with floating point numbers
 
@@ -150,7 +149,7 @@ impl Board {
         neighboring_coordinates
     }
  
-    pub fn num_mines_nearby(&self, coordinate: &Coordinate) -> Hint {
+    pub fn get_hint(&self, coordinate: &Coordinate) -> Hint {
         let neighbor_coordinates = self.neighboring_coordinates(coordinate);
         
         neighbor_coordinates.iter()
@@ -162,78 +161,79 @@ impl Board {
         potential_coordinate.0 >= 0 && potential_coordinate.0 < self.h_size as i32 && potential_coordinate.1 >= 0 && potential_coordinate.1 < self.v_size as i32
     }
 
-    // Updates the board in place
-    //  - `self` instead of `mut self` for functional update
-    //  - `player_action` is assumed to have been validated
+    // Updates Board using immutable hashmap
     pub fn update(&self, player_action: &PlayerAction) -> Board {
-        let player_coordinate = player_action.coordinate;
-        let mut updated_board_map = self.board_map.clone();
-
-        updated_board_map = match player_action.action {
-            Action::Reveal => self.reveal(&player_coordinate, updated_board_map), // takes care of hint = 0 case
-            Action::Flag => { updated_board_map.insert(player_coordinate, TileStatus::Flagged(player_action.player_id)); updated_board_map},
+        let updated_board_map = match player_action.action {
+            Action::Reveal => self.reveal(&player_action.coordinate, self.board_map.clone()),
+            Action::Flag => self.board_map.update(player_action.coordinate, TileStatus::Flagged(player_action.player_id)),
         };
 
         Board {
             h_size: self.h_size,
             v_size: self.v_size,
             board_map: updated_board_map,
-            mine_coordinates: self.mine_coordinates.clone(),
+            mine_coordinates: Rc::clone(&self.mine_coordinates),
         }
     }
 
-    fn reveal_all(&self, hidden_neighbors: Vec<Coordinate>, board_map: BoardMap) -> BoardMap {
-        match hidden_neighbors.as_slice() {
-            [] => board_map,
-            [head, tail @..] => {
-                let updated_board_map = self.reveal(head, board_map);
-                self.reveal_all(tail.to_vec(), updated_board_map)
+    fn reveal_all(&self, mut hidden_neighbors: Vec<Coordinate>, board_map: BoardMap) -> BoardMap {
+        match hidden_neighbors.pop() {
+            None => board_map,
+            Some(coord) => {
+                let updated_board_map = self.reveal(&coord, board_map);
+                self.reveal_all(hidden_neighbors,updated_board_map)  // O(1) allocations
             }
+            // Vec is owned by this function call---not shared with anyone else
+            // It gets consumed and destroyed when the function returns
+            // So this is still functional
         }
     }
+
+    // fn reveal_all(&self, hidden_neighbors: Vec<Coordinate>, board_map: BoardMap) -> BoardMap {
+    //     match hidden_neighbors.as_slice() {
+    //         [] => board_map,
+    //         [head, tail @..] => {
+    //             let updated_board_map = self.reveal(head, board_map);
+    //             self.reveal_all(tail.to_vec(), updated_board_map) <--------- O(n^2) allocations by .to_vec()
+    //         }
+    //     }
+    // }
 
     fn reveal(&self, coordinate: &Coordinate, board_map: BoardMap) -> BoardMap {
-        debug_assert!(self.is_valid_coordinate(coordinate), "Invalid coordinate");
-
         let tile_status = board_map.get(coordinate)
-            .expect("board_map initialized with all valid coordinates");
-
+            .unwrap_or_else(|| panic!("tile should exist at {:?}", coordinate));
         
-        match tile_status  {
+        match tile_status {
             TileStatus::Hidden => {
                 let updated_tile_status = 
-                    if self.is_mine(coordinate) {   
-                        TileStatus::Revealed(Tile::Mine) 
+                    if self.is_mine(coordinate) {
+                        TileStatus::Revealed(Tile::Mine)
                     } else {
-                        let num_mines = self.num_mines_nearby(coordinate);
-                        TileStatus::Revealed(Tile::Hint(num_mines))
+                        let hint = self.get_hint(coordinate);
+                        TileStatus::Revealed(Tile::Hint(hint))
                     };
 
-                // shadowing board_map to be mutable
-                let mut board_map = board_map;
-                
                 // handle hint = 0 case
                 let is_zero_hint =
                     matches!(updated_tile_status, TileStatus::Revealed(Tile::Hint(0)));
 
-                board_map.insert(*coordinate, updated_tile_status);
+                let updated_board_map = board_map.update(*coordinate, updated_tile_status);
 
                 if is_zero_hint {
                     let hidden_neighbors = self.neighboring_coordinates(coordinate)
-                        .into_iter() // Consume the Vec, not borrow it
-                        .filter(|n| matches!(board_map.get(&n), Some(TileStatus::Hidden)))
+                        .into_iter()
+                        .filter(|c| matches!(updated_board_map.get(c), Some(TileStatus::Hidden)))
                         .collect();
 
-                    self.reveal_all(hidden_neighbors, board_map)
+                    self.reveal_all(hidden_neighbors, updated_board_map)
                 } else{
-                    board_map
+                    updated_board_map
                 }
             },
-            // revealing a tile that's not hidden does not do anything
-            _ => board_map
-        }    
-    }        
-        
+            _ => board_map // this case is necessary because a tile could be a hidden neighbor of two different tiles
+                           // one tile could be revealed more than once in the recursive call stack
+        }
+    }    
 
 
     pub fn validate_size(h_size: u32, v_size: u32) -> Result<BoardSize, InvalidErr> {
@@ -244,19 +244,17 @@ impl Board {
         }
     }
 
-    // This function validates player's chosen coordinate 
-    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, CoordinateErr> {        
+        // This function validates player's chosen coordinate 
+    pub fn validate_coordinate(&self, coordinate: &Coordinate) -> Result<Coordinate, InvalidErr> {        
         if self.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
-            let tile_status = self.board_map.get(coordinate)
-                .expect("Board should contain all valid coordinates!");
+            let tile_status = self.get_tile(coordinate);
 
             match tile_status {
-                TileStatus::Revealed(_) => Err(CoordinateErr::TileRevealed),
-                TileStatus::Flagged(_) => Err(CoordinateErr::TileFlagged),
-                _ => Ok(*coordinate) // borrowed coordinate, can you return its value here?
+                TileStatus::Revealed(_) => Err(InvalidErr::InvalidCoordinate(CoordinateErr::TileRevealed)),
+                _ => Ok(*coordinate)
             }
         } else {
-           Err(CoordinateErr::OutOfBounds)
+           Err(InvalidErr::InvalidCoordinate(CoordinateErr::OutOfBounds))
         }
     }
 
@@ -331,9 +329,9 @@ mod tests {
     #[test]
     fn test_reveal_all() {
         let mine_coordinate: HashSet<Coordinate> = HashSet::from([Coordinate{x: 0, y: 0}]);
-        let test_board: Board = Board::new_test(3, 3, mine_coordinate); // ownership of mine_coordinate moved here
+        let test_board: Board = Board::new_test(3, 3, mine_coordinate);
 
-        let updated_board = test_board.reveal(&Coordinate{x: 0, y: 2},test_board.board_map.clone());
+        let updated_board = test_board.reveal(&Coordinate{x: 0, y: 2}, test_board.board_map.clone());
         assert_eq!(updated_board.get(&Coordinate{x: 0, y: 1}).unwrap(), &TileStatus::Revealed(Tile::Hint(1)))
     }
 
