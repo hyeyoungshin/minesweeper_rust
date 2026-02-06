@@ -1,9 +1,8 @@
-use crate::core::board::Board;
-use crate::core::board::Coordinate;
+use crate::core::board::{Board, Coordinate};
 
-use crate::core::player::Player;
-use crate::core::player::Action;
-use crate::core::player::PlayerAction;
+use crate::core::player::{Player, Action, PlayerAction};
+use crate::core::validation::{InvalidErr, CoordinateErr};
+use crate::core::validation::*;
 
 use crate::single_player::game::*;
 use crate::single_player::game::Game;
@@ -20,27 +19,11 @@ macro_rules! try_again {
     }};
 }
 
-pub const BOARD_MAX_SIZE: u32 = 30;
-
 #[derive(Debug)]
 pub enum ParseErr {
     BadFormat,
     NotNum,
     NegativeNum,
-}
-
-#[derive(Debug)]
-pub enum CoordinateErr {
-    OutOfBounds,
-    TileRevealed,
-    TileFlagged,
-}
-
-#[derive(Debug)]
-pub enum InvalidErr {
-    InvalidAction,
-    InvalidCoordinate(CoordinateErr),
-    InvalidBoardSize,
 }
 
 impl fmt::Display for ParseErr {
@@ -102,7 +85,7 @@ pub fn get_coordinate(game: &Game, player: &Player) -> io::Result<Coordinate> {
             }
         };
          
-        match game.validate_coordinate(&parsed_coord, player) {
+        match validate_coordinate(&game.board, &parsed_coord, player) {
             Ok(coord) => return Ok(coord),
             Err(e) => { 
                 try_again!(e);
@@ -152,7 +135,7 @@ pub fn get_action(game: &Game, player: &Player, coordinate: Coordinate) -> io::R
 
         let player_action = PlayerAction{ player_id: player.id, coordinate, action: parsed_action };
 
-        match game.validate_action(player_action, &coordinate) {
+        match validate_action(&game.board, player_action, &coordinate) {
                 Ok(player_action) => return Ok(player_action),
                 Err(invalid_err) => { 
                     try_again!(invalid_err) 
@@ -186,7 +169,7 @@ pub fn get_board_size() -> io::Result<BoardSize> {
             }
         };
 
-        match Board::validate_size(parsed_board_size.0, parsed_board_size.1) {
+        match validate_board_size(parsed_board_size.0, parsed_board_size.1) {
             Ok(board_size) => return Ok(board_size),
             Err(size_err) => {
                 try_again!(size_err);

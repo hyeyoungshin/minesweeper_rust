@@ -13,7 +13,7 @@ fn main() -> io::Result<()> {
     // TODO: validate input here too
     let game_level = get_difficulty()?;
 
-    let mut game = Game::new(h_size, v_size, game_level);
+    let mut game = Game::new_single_player(h_size, v_size, game_level);
     
     ////////// interactive game loop //////////
     while game.status == GameStatus::Continue {

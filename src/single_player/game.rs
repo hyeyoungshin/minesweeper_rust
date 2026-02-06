@@ -29,8 +29,8 @@ pub enum Difficulty {
 }
 
 impl Game {
-    pub fn new(board_size_x: u32, board_size_y: u32, difficulty: Difficulty) -> Game {
-        let new_board = Board::new(board_size_x, board_size_y, difficulty);
+    pub fn new_single_player(board_size_x: u32, board_size_y: u32, difficulty: Difficulty) -> Game {
+        let new_board = Board::new_single_player(board_size_x, board_size_y, difficulty);
         
         Game {
             board: new_board,
@@ -90,38 +90,6 @@ impl Game {
             status: updated_status
         }
     }
-    
-    // This function validates player's chosen action for the tile at the coordinate
-    pub fn validate_action(&self, player_action: PlayerAction, coordinate: &Coordinate) -> Result<PlayerAction, InvalidErr> {
-        let tile_status = self.board.get_tile(coordinate);
-        let (id, action) = (&player_action.player_id, player_action.action);
-
-        match (tile_status, action) {
-            (TileStatus::Hidden, Action::Flag | Action::Reveal) => Ok(player_action),
-            (TileStatus::Flagged(flagged_by), Action::Unflag) if id == flagged_by => Ok(player_action), // a flagged tile can only be unflagged by the same player
-            _ => Err(InvalidErr::InvalidAction),
-        }
-    }
-
-    // This function validates player's chosen coordinate 
-    pub fn validate_coordinate(&self, coordinate: &Coordinate, player: &Player) -> Result<Coordinate, InvalidErr> {        
-        if self.board.within_bounds(&(coordinate.x as i32, coordinate.y as i32)) {
-            let tile_status = self.board.get_tile(coordinate);
-
-            match tile_status {
-                TileStatus::Revealed(_) => Err(InvalidErr::InvalidCoordinate(CoordinateErr::TileRevealed)),
-                TileStatus::Flagged(flagged_by) => if &player.id == flagged_by { 
-                    Ok(*coordinate) 
-                } else {
-                    Err(InvalidErr::InvalidCoordinate(CoordinateErr::TileFlagged))
-                },                    
-                _ => Ok(*coordinate)
-            }
-        } else {
-           Err(InvalidErr::InvalidCoordinate(CoordinateErr::OutOfBounds))
-        }
-    }
-
 }
 
 

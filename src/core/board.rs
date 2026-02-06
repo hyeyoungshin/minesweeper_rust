@@ -10,9 +10,6 @@ use crate::core::player::*;
 // TODO: remove dependency on single_player
 use crate::single_player::game::*;
 use crate::single_player::game::Difficulty;
-use crate::single_player::text_ui::InvalidErr;
-use crate::single_player::text_ui::BOARD_MAX_SIZE;
-use crate::single_player::text_ui::BoardSize;
 
 pub struct Board { 
     pub h_size: u32,  // horizontal size (grows to right)
@@ -44,7 +41,7 @@ type Hint = i8;
 type BoardMap = HashMap<Coordinate, TileStatus>;
 
 impl Board {
-    pub fn new(h_size: u32, v_size: u32, difficulty: Difficulty) -> Board {
+    pub fn new_single_player(h_size: u32, v_size: u32, difficulty: Difficulty) -> Board {
         // initializes empty hashmap
         let board_map = Board::initialize_board_map(h_size, v_size);
 
@@ -189,16 +186,6 @@ impl Board {
         }
     }
 
-    // fn reveal_all(&self, hidden_neighbors: Vec<Coordinate>, board_map: BoardMap) -> BoardMap {
-    //     match hidden_neighbors.as_slice() {
-    //         [] => board_map,
-    //         [head, tail @..] => {
-    //             let updated_board_map = self.reveal(head, board_map);
-    //             self.reveal_all(tail.to_vec(), updated_board_map) <--------- O(n^2) allocations by .to_vec()
-    //         }
-    //     }
-    // }
-
     fn reveal(&self, coordinate: &Coordinate, board_map: BoardMap) -> BoardMap {
         let tile_status = board_map.get(coordinate)
             .unwrap_or_else(|| panic!("tile should exist at {:?}", coordinate));
@@ -235,17 +222,6 @@ impl Board {
         }
     }    
 
-
-    pub fn validate_size(h_size: u32, v_size: u32) -> Result<BoardSize, InvalidErr> {
-        if h_size > BOARD_MAX_SIZE && v_size > BOARD_MAX_SIZE {
-            Err(InvalidErr::InvalidBoardSize)
-        } else {
-            Ok((h_size as u32, v_size as u32))
-        }
-    }
-
-    
-
     // // Boolean helper for internal use / assertions
     // fn is_valid_coordinate(&self, coord: &Coordinate) -> bool {
     //     self.validate_coordinate(coord).is_ok()
@@ -279,13 +255,13 @@ mod tests {
 
     #[test]
     fn num_mine_easy() {
-        let new_board = Board::new(2, 2, Difficulty::Easy);
+        let new_board = Board::new_single_player(2, 2, Difficulty::Easy);
         assert_eq!(new_board.mine_coordinates.len(), 1)
     }
 
     #[test]
     fn num_mines_hard() {
-        let new_board = Board::new(5, 5, Difficulty::Hard);
+        let new_board = Board::new_single_player(5, 5, Difficulty::Hard);
         assert_eq!(new_board.mine_coordinates.len(), 5);
     }
 
