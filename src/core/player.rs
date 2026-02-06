@@ -1,4 +1,5 @@
-use crate::game::board::Coordinate;
+use crate::core::board::Coordinate;
+
 use std::sync::atomic::{AtomicU32, Ordering};
 
 static NEXT_PLAYER_ID: AtomicU32 = AtomicU32::new(1);

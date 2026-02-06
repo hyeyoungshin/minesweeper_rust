@@ -1,16 +1,13 @@
-pub mod board; 
-pub mod player;
+use crate::core::board::{Board, Coordinate, Tile, TileStatus};
+use crate::core::player::{Player, Action, PlayerAction};
 
-use board::Board;
-use board::Coordinate;
-use board::Tile;
-use board::TileStatus;
-use crate::text_ui::*;
-
-
-use player::*;
+use crate::single_player::text_ui::*;
 
 use std::collections::HashSet;
+
+pub const EASY: f32 = 0.12;
+pub const MEDIUM: f32 = 0.15;
+pub const HARD: f32 = 0.2;
 
 pub struct Game {
     pub board: Board,    

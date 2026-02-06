@@ -1,19 +1,18 @@
+// Board, TileStatus, reveal logic
+
 use im::HashMap;
 use std::rc::Rc;
 use std::collections::HashSet;
 
 
-use crate::game::Difficulty;
-use crate::game::player::*;
-use crate::text_ui::InvalidErr;
-use crate::text_ui::CoordinateErr;
-use crate::text_ui::BOARD_MAX_SIZE;
-use crate::text_ui::BoardSize;
+use crate::core::player::*;
 
-
-pub const EASY: f32 = 0.12;
-pub const MEDIUM: f32 = 0.15;
-pub const HARD: f32 = 0.2;
+// TODO: remove dependency on single_player
+use crate::single_player::game::*;
+use crate::single_player::game::Difficulty;
+use crate::single_player::text_ui::InvalidErr;
+use crate::single_player::text_ui::BOARD_MAX_SIZE;
+use crate::single_player::text_ui::BoardSize;
 
 pub struct Board { 
     pub h_size: u32,  // horizontal size (grows to right)

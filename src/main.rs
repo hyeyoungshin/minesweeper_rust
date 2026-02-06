@@ -1,11 +1,8 @@
-mod game;
-mod text_ui;
-
-use crate::game::*;
-use crate::text_ui::*;
-use crate::game::player::*;
 use std::io;
 
+use minesweeper_rust::core::*;
+use minesweeper_rust::single_player::game::*;
+use minesweeper_rust::single_player::text_ui::*;
 
 fn main() -> io::Result<()> {
     start_game();

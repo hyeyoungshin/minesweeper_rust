@@ -1,6 +1,15 @@
-use crate::game::*;
-use crate::game::player::*;
-use crate::game::board::*;
+use crate::core::board::Board;
+use crate::core::board::Coordinate;
+
+use crate::core::player::Player;
+use crate::core::player::Action;
+use crate::core::player::PlayerAction;
+
+use crate::single_player::game::*;
+use crate::single_player::game::Game;
+use crate::single_player::game::Difficulty;
+use crate::single_player::game::GameStatus;
+
 use std::io;
 use std::fmt;
 
