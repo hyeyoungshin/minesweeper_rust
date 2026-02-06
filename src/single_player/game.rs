@@ -30,7 +30,7 @@ pub enum Difficulty {
 
 impl Game {
     pub fn new(board_size_x: u32, board_size_y: u32, difficulty: Difficulty) -> Game {
-        let new_board = Board::new_single_player(board_size_x, board_size_y, difficulty);
+        let new_board = Board::new(board_size_x, board_size_y, difficulty);
         
         Game {
             board: new_board,

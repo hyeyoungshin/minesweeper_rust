@@ -41,7 +41,7 @@ type Hint = i8;
 type BoardMap = HashMap<Coordinate, TileStatus>;
 
 impl Board {
-    pub fn new_single_player(h_size: u32, v_size: u32, difficulty: Difficulty) -> Board {
+    pub fn new(h_size: u32, v_size: u32, difficulty: Difficulty) -> Board {
         // initializes empty hashmap
         let board_map = Board::initialize_board_map(h_size, v_size);
 
@@ -255,13 +255,13 @@ mod tests {
 
     #[test]
     fn num_mine_easy() {
-        let new_board = Board::new_single_player(2, 2, Difficulty::Easy);
+        let new_board = Board::new(2, 2, Difficulty::Easy);
         assert_eq!(new_board.mine_coordinates.len(), 1)
     }
 
     #[test]
     fn num_mines_hard() {
-        let new_board = Board::new_single_player(5, 5, Difficulty::Hard);
+        let new_board = Board::new(5, 5, Difficulty::Hard);
         assert_eq!(new_board.mine_coordinates.len(), 5);
     }
 
