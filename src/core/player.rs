@@ -4,18 +4,18 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 static NEXT_PLAYER_ID: AtomicU32 = AtomicU32::new(1);
 
-pub type PlayerID = u32;
+pub type PlayerId = u32;
 
 #[derive(Debug)]
 pub struct PlayerAction {
-    pub player_id: PlayerID,
+    pub player_id: PlayerId,
     pub coordinate: Coordinate,
     pub action: Action, 
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Player {
-    pub id: PlayerID,
+    pub id: PlayerId,
     pub name: String,
     pub points: i32
 }
@@ -34,6 +34,11 @@ impl Player {
             name: name,
             points: 0 
         }
+    }
+
+    #[cfg(test)]
+    pub fn new_with_id(id: PlayerId, name: String) -> Self {
+        Player { id, name, points: 0 }
     }
 
     pub fn add_points(&self, points: i32) -> Self {

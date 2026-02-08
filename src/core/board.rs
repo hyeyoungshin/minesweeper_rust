@@ -8,8 +8,8 @@ use std::collections::HashSet;
 use crate::core::player::*;
 
 // TODO: remove dependency on single_player
-use crate::single_player::game::*;
-use crate::single_player::game::Difficulty;
+use crate::core::game::*;
+use crate::core::game::Difficulty;
 
 pub struct Board { 
     pub h_size: u32,  // horizontal size (grows to right)
@@ -24,7 +24,7 @@ pub struct Board {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TileStatus {
     Hidden,
-    Flagged(PlayerID),
+    Flagged(PlayerId),
     Revealed(Tile)
 }
 

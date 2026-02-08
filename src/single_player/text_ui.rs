@@ -4,10 +4,8 @@ use crate::core::player::{Player, Action, PlayerAction};
 use crate::core::validation::{InvalidErr, CoordinateErr};
 use crate::core::validation::*;
 
-use crate::single_player::game::*;
-use crate::single_player::game::Game;
-use crate::single_player::game::Difficulty;
-use crate::single_player::game::GameStatus;
+use crate::core::game::*;
+use crate::core::game::{Game, GameStatus, Difficulty};
 
 use std::io;
 use std::fmt;
@@ -64,7 +62,7 @@ pub fn start_game() {
 // Prints the end of game message
 pub fn end_game(game: &Game) {
     match game.status {
-        GameStatus::Win => println!("You won!"),
+        GameStatus::Win(winner_id) => println!("{:?} won!", game.get_player(&winner_id)),
         GameStatus::Over => println!("You lost..."),
         _ => {panic!("should not be here");}
     }
