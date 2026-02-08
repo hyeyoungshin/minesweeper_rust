@@ -1,7 +1,5 @@
 use crate::core::board::{Board, Coordinate, Tile, TileStatus};
-use crate::core::player::{Player, Action, PlayerAction};
-
-use crate::single_player::text_ui::*;
+use crate::core::player::PlayerAction;
 
 use std::collections::HashSet;
 
@@ -96,6 +94,7 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*; // bring all of the items belonging to the tests module’s parent into scope
+    use crate::core::player::{Player, Action};
 
     #[test]
     fn check_win_test() {
