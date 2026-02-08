@@ -11,6 +11,8 @@ pub struct Game {
     pub board: Board,
     pub players: HashMap<PlayerId, Player>,
     pub status: GameStatus,
+    pub turn_order: Vec<PlayerId>, 
+    pub current_turn: usize,
 }
 
 #[derive(PartialEq, Debug)]
@@ -29,13 +31,12 @@ pub enum Difficulty {
 
 impl Game {
     pub fn new(h_size: u32, v_size: u32, difficulty: Difficulty) -> Game {
-        let board = Board::new(h_size, v_size, difficulty);
-        let players = HashMap::new();
-
         Game {
-            board,
-            players,
+            board: Board::new(h_size, v_size, difficulty),
+            players: HashMap::new(),
             status: GameStatus::Continue,
+            turn_order: Vec::new(),
+            current_turn: 0,
         }
     }
     
@@ -45,7 +46,9 @@ impl Game {
     // When You WOULD Borrow:
     //   Only if the caller legitimately needs the player afterwards:
     pub fn add_player(&mut self, player: Player) {
+        self.turn_order.push(player.id);
         self.players.insert(player.id, player);
+        
     }
 
     pub fn get_player(&self, player_id: &PlayerId) -> &Player {
@@ -53,8 +56,8 @@ impl Game {
     }
 
     pub fn current_player(&self) -> &Player {
-        //TODO: figure out a way to get the current player to determin winner
-        self.players.get(&0).unwrap_or_else(|| panic!("current player not found"))
+        let id = self.turn_order[self.current_turn];
+        self.get_player(&id)
     }
 
     // Updates the game status based on the following logic
@@ -98,7 +101,9 @@ impl Game {
         Game {
             board: updated_board,
             players: self.players.clone(),
-            status: updated_status
+            status: updated_status,
+            turn_order: self.turn_order.clone(),
+            current_turn: (self.current_turn + 1) % self.turn_order.len(),
         }
     }
 }
