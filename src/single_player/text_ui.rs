@@ -38,6 +38,7 @@ impl fmt::Display for InvalidErr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             InvalidErr::InvalidAction => write!(f, "Invalid action"),
+            InvalidErr::InvalidPlayer => write!(f, "Invalid player"),
             InvalidErr::InvalidBoardSize => write!(f, "Invalid board size"),
             InvalidErr::InvalidCoordinate(coordinate_err) => write!(f, "Invalid coordinate: {}", coordinate_err),
         }
@@ -133,7 +134,7 @@ pub fn get_action(game: &Game, player: &Player, coordinate: Coordinate) -> io::R
 
         let player_action = PlayerAction{ player_id: player.id, coordinate, action: parsed_action };
 
-        match validate_action(&game.board, player_action, &coordinate) {
+        match validate_action(&game, player_action, &coordinate) {
                 Ok(player_action) => return Ok(player_action),
                 Err(invalid_err) => { 
                     try_again!(invalid_err) 
@@ -201,6 +202,7 @@ pub fn get_name() -> io::Result<String> {
 
     let mut player_input = String::new();
     io::stdin().read_line(&mut player_input)?;
+    let player_input = player_input.trim().to_string();
     
     return Ok(player_input)
 }
