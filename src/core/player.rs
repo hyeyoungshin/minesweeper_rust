@@ -17,7 +17,7 @@ pub struct PlayerAction {
 pub struct Player {
     pub id: PlayerId,
     pub name: String,
-    pub points: i32
+    pub points: i32,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -43,6 +43,10 @@ impl Player {
 
     pub fn add_points(&self, points: i32) -> Self {
         Player { id: self.id, name: self.name.clone() , points: self.points + points }
+    }
+
+    pub fn subtract_points(&self, points: i32) -> Self {
+        Player { id: self.id, name: self.name.clone() , points: self.points - points }
     }
 }
 

@@ -3,6 +3,7 @@ use crate::single_player::text_ui::BoardSize;
 
 use crate::core::player::{Player, PlayerAction, Action};
 use crate::core::board::{Board, Coordinate, TileStatus};
+use crate::core::game::{Game};
 
 #[derive(Debug)]
 pub enum CoordinateErr {
@@ -14,6 +15,7 @@ pub enum CoordinateErr {
 #[derive(Debug)]
 pub enum InvalidErr {
     InvalidAction,
+    InvalidPlayer,
     InvalidCoordinate(CoordinateErr),
     InvalidBoardSize,
 }
@@ -29,14 +31,18 @@ pub fn validate_board_size(h_size: u32, v_size: u32) -> Result<BoardSize, Invali
 }
 
 // This function validates player's chosen action for the tile at the coordinate
-pub fn validate_action(board: &Board, player_action: PlayerAction, coordinate: &Coordinate) -> Result<PlayerAction, InvalidErr> {
-    let tile_status = board.get_tile(coordinate);
-    let (id, action) = (&player_action.player_id, player_action.action);
+pub fn validate_action(game: &Game, player_action: PlayerAction, coordinate: &Coordinate) -> Result<PlayerAction, InvalidErr> {
+    if game.current_player().id == player_action.player_id {
+        let tile_status = game.board.get_tile(coordinate);
+        let (id, action) = (&player_action.player_id, player_action.action);
 
-    match (tile_status, action) {
-        (TileStatus::Hidden, Action::Flag | Action::Reveal) => Ok(player_action),
-        (TileStatus::Flagged(flagged_by), Action::Unflag) if id == flagged_by => Ok(player_action), // a flagged tile can only be unflagged by the same player
-        _ => Err(InvalidErr::InvalidAction),
+        match (tile_status, action) {
+            (TileStatus::Hidden, Action::Flag | Action::Reveal) => Ok(player_action),
+            (TileStatus::Flagged(flagged_by), Action::Unflag) if id == flagged_by => Ok(player_action), // a flagged tile can only be unflagged by the same player
+            _ => Err(InvalidErr::InvalidAction),
+        }
+    } else {
+        Err(InvalidErr::InvalidPlayer)
     }
 }
 

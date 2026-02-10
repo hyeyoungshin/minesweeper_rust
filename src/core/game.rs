@@ -93,9 +93,7 @@ impl Game {
 
     // Updates board_map and GameStatus
     pub fn update(&self, player_action: &PlayerAction) -> Game {
-        let updated_board = self.board.update(player_action); // mut self ver: no other program has access to current_board
-                                                                             // &mut self ver: 
-        
+        let updated_board = self.board.update(player_action);
         let updated_status = Game::update_status(self, player_action, &updated_board);
 
         Game {
