@@ -14,7 +14,8 @@ fn main() -> io::Result<()> {
     let game_level = get_difficulty()?;
 
     let mut game = Game::new(h_size, v_size, game_level);
-    game.add_player(single_player);
+    
+    game = game.add_player(single_player);
     
     ////////// interactive game loop //////////
     while game.status == GameStatus::Continue {

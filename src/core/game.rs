@@ -11,8 +11,8 @@ pub struct Game {
     pub board: Board,
     pub players: HashMap<PlayerId, Player>,
     pub status: GameStatus,
-    pub turn_order: Vec<PlayerId>, 
-    pub current_turn: usize,
+    pub turn_order: Vec<PlayerId>, // [1,3,5,4] where 1, 3, 5, 4 are player ids
+    pub current_turn: usize,       // index of turn_order
 }
 
 #[derive(PartialEq, Debug)]
@@ -45,10 +45,42 @@ impl Game {
     //   "If a function consumes data to store it, take ownership."
     // When You WOULD Borrow:
     //   Only if the caller legitimately needs the player afterwards:
-    pub fn add_player(&mut self, player: Player) {
-        self.turn_order.push(player.id);
-        self.players.insert(player.id, player);
+    // pub fn add_player(&mut self, player: Player) {
+    //     self.turn_order.push(player.id);
+    //     self.players.insert(player.id, player);
+    // }
+    pub fn add_player(self, player: Player) -> Game {
+        let mut new_turn_order = self.turn_order;
+        new_turn_order.push(player.id);
+
+        Game {
+            board: self.board,
+            players: self.players.update(player.id, player),
+            status: self.status, 
+            turn_order: new_turn_order,
+            current_turn: self.current_turn,
+        }
+    }
+
+    // this way I can chain add_player to game
+    // for example,
+    //   let mut game = Game::new(10, 10, Difficulty::Medium)
+    //     .add_player(Player::new("charlie")
+    //     .add_player(Player::new("hyeyoung")
+    //     .add_player(Player::new("william");
+    pub fn add_player_by_name(self, player_name: &str) -> Game{
+        let player = Player::new(player_name.to_string());
         
+        let mut new_turn_order = self.turn_order;
+        new_turn_order.push(player.id);
+
+        Game {
+            board: self.board,
+            players: self.players.update(player.id, player),
+            status: self.status, 
+            turn_order: new_turn_order,
+            current_turn: self.current_turn,
+        }
     }
 
     pub fn get_player(&self, player_id: &PlayerId) -> &Player {
@@ -116,7 +148,7 @@ mod tests {
         let mut game = Game::new(3, 3, Difficulty::Easy);
         let player_1 = Player::new_with_id(1, "hyeyoung".to_string());
         // let updated_game = game.add_player(player_1);
-        game.add_player(player_1);
+        game = game.add_player(player_1);
 
         assert_eq!(game.get_player(&1).id, 1);
     }
@@ -126,8 +158,8 @@ mod tests {
         let mut game = Game::new(3, 3, Difficulty::Easy);
         let player_1 = Player::new_with_id(1, "hyeyoung".to_string());
         let player_2= Player::new_with_id(2,"charlie".to_string());
-        game.add_player(player_1);
-        game.add_player(player_2);
+        game = game.add_player(player_1);
+        game = game.add_player(player_2);
 
         assert_eq!(game.get_player(&2).id, 2);
     }
