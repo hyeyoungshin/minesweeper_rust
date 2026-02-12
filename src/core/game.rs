@@ -19,7 +19,6 @@ pub struct Game {
 pub enum GameStatus {
     Continue,
     Over,
-    Win(PlayerId)
 }
 
 #[derive(Clone)]
@@ -97,16 +96,24 @@ impl Game {
     // If not, then check whether all the non-mine tiles are revealed by calling check_win
     //     If so, game win
     //     If not, game continues
-    pub fn update_status(&self, player_action: &PlayerAction, board: &Board) -> GameStatus {
+    pub fn update_status(&self, player_action: &PlayerAction, board: &Board) -> (GameStatus, i32) {
         let current_tile = board.get_tile(&player_action.coordinate);
         
         match current_tile {
-            TileStatus::Revealed(Tile::Mine) => GameStatus::Over,
-            _ => match self.check_win(board) {
-                (true, winner) => GameStatus::Win(winner.id),
-                (false, _) => GameStatus::Continue
-            }
+            TileStatus::Revealed(Tile::Mine) => (GameStatus::Over, -10),
+            TileStatus::Revealed(Tile::Hint(_)) => (GameStatus::Over, 1), //TODO: revealed more than 1 tile, 3
+            TileStatus::Flagged(_) => (GameStatus::Continue, 10),
+            _ => panic!("current_tile should not be hidden")
+            // _ => match self.check_win(board) {
+            //     true => (GameStatus::Over, 5), // Win
+            //     false => (GameStatus::Continue, 1),
+            // }
         }
+    }
+
+    // TODO: implement this
+    pub fn winner(&self) -> &Player {
+        self.get_player(&1)
     }
 
     // Check the game winning condition
@@ -115,22 +122,23 @@ impl Game {
     // - You can leave mines unflagged and still win
     // Lose condition:
     // - You reveal a tile with a mine (game over)
-    fn check_win(&self, board: &Board) -> (bool, &Player) {
-        let won = board.iter().all(|(coordinate, tile_status)| {
+    fn check_win(&self, board: &Board) -> bool {
+        board.iter().all(|(coordinate, tile_status)| {
             board.is_mine(coordinate) || matches!(tile_status, TileStatus::Revealed(Tile::Hint(_)))
-        });
-
-        (won, self.current_player())
+        })
     }
 
     // Updates board_map and GameStatus
     pub fn update(&self, player_action: &PlayerAction) -> Game {
         let updated_board = self.board.update(player_action);
-        let updated_status = Game::update_status(self, player_action, &updated_board);
+        let (updated_status, points) = Game::update_status(self, player_action, &updated_board);
+        let current_player = self.get_player(&player_action.player_id);
+
+        let updated_players = self.players.update(player_action.player_id, current_player.add_points(points));
 
         Game {
             board: updated_board,
-            players: self.players.clone(),
+            players: updated_players,
             status: updated_status,
             turn_order: self.turn_order.clone(),
             current_turn: (self.current_turn + 1) % self.turn_order.len(),

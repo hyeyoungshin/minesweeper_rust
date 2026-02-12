@@ -38,7 +38,7 @@ pub fn validate_action(game: &Game, player_action: PlayerAction, coordinate: &Co
 
         match (tile_status, action) {
             (TileStatus::Hidden, Action::Flag | Action::Reveal) => Ok(player_action),
-            (TileStatus::Flagged(flagged_by), Action::Unflag) if id == flagged_by => Ok(player_action), // a flagged tile can only be unflagged by the same player
+            // (TileStatus::Flagged(flagged_by), Action::Unflag) if id == flagged_by => Ok(player_action), // a flagged tile can only be unflagged by the same player
             _ => Err(InvalidErr::InvalidAction),
         }
     } else {

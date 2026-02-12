@@ -62,16 +62,18 @@ pub fn start_game() {
 
 // Prints the end of game message
 pub fn end_game(game: &Game) {
-    match game.status {
-        GameStatus::Win(winner_id) => println!("{:?} won!", game.get_player(&winner_id)),
-        GameStatus::Over => println!("You lost..."),
-        _ => {panic!("should not be here");}
-    }
+    // match game.status {
+    //     GameStatus::Win(winner_id) => println!("{:?} won!", game.get_player(&winner_id)),
+    //     GameStatus::Over => println!("You lost..."),
+    //     _ => {panic!("should not be here");}
+    // }
+    println!("{} has won!", game.winner().name);
+    
 } 
 
 // Prompts a message to get a valid coordinate from player
 pub fn get_coordinate(game: &Game, player: &Player) -> io::Result<Coordinate> {
-    println!("Enter a coordinate: x,y");
+    println!("{}, enter a coordinate: x,y", player.name);
     // The loop continues until one branch hits return Ok(valid_coord)
     loop {
         let mut player_input = String::new();
@@ -147,7 +149,7 @@ pub fn parse_action(player_input: String) -> Result<Action, ParseErr> {
     match player_input.trim() {
         "Reveal" => Ok(Action::Reveal),
         "Flag" => Ok(Action::Flag),
-        "Unflag" => Ok(Action::Unflag),
+        // "Unflag" => Ok(Action::Unflag),
         _ => Err(ParseErr::BadFormat)
     }
 }

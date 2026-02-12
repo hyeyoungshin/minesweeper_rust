@@ -24,7 +24,6 @@ pub struct Player {
 pub enum Action{
     Reveal, // Revealing all in the hint = 0 case is always 3. Revealing a hint tile is 1.
     Flag,   // If flagged a non-mine tile, it reveals. In this case, even if the tile has hint = 0, it does not reveal all of its neighbors. The player gets a penalty point -1.
-    Unflag,
 }
 
 impl Player {

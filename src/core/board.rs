@@ -161,8 +161,8 @@ impl Board {
     pub fn update(&self, player_action: &PlayerAction) -> Board {
         let updated_board_map = match player_action.action {
             Action::Reveal => self.reveal(&player_action.coordinate, self.board_map.clone()),
-            Action::Flag => self.board_map.update(player_action.coordinate, TileStatus::Flagged(player_action.player_id)),
-            Action::Unflag => self.board_map.update(player_action.coordinate, TileStatus::Hidden),
+            Action::Flag if self.is_mine(&player_action.coordinate) => self.board_map.update(player_action.coordinate, TileStatus::Flagged(player_action.player_id)),
+            _  => self.reveal(&player_action.coordinate, self.board_map.clone()), // penalty - 10 
         };
 
         Board {
