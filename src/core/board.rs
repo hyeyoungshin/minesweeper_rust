@@ -38,7 +38,7 @@ pub enum Tile {
 pub struct Coordinate { pub x: u32, pub y: u32 }
 
 type Hint = i8;
-type BoardMap = HashMap<Coordinate, TileStatus>;
+pub type BoardMap = HashMap<Coordinate, TileStatus>;
 
 impl Board {
     pub fn new(h_size: u32, v_size: u32, difficulty: Difficulty) -> Board {
@@ -162,7 +162,8 @@ impl Board {
         let updated_board_map = match player_action.action {
             Action::Reveal => self.reveal(&player_action.coordinate, self.board_map.clone()),
             Action::Flag if self.is_mine(&player_action.coordinate) => self.board_map.update(player_action.coordinate, TileStatus::Flagged(player_action.player_id)),
-            _  => self.reveal(&player_action.coordinate, self.board_map.clone()), // penalty - 10 
+            // flagging a non-mine reveals it 
+            _  => self.reveal(&player_action.coordinate, self.board_map.clone()) // penalty - 10 
         };
 
         Board {

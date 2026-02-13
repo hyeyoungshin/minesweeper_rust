@@ -1,5 +1,6 @@
-use crate::core::player::{Player, PlayerId, PlayerAction};
-use crate::core::board::{Board, Tile, TileStatus};
+use crate::core::player::{Player, PlayerId, PlayerAction, Action};
+use crate::core::board::{Board, Tile, TileStatus, Coordinate};
+use crate::core::board::*;
 
 use im::HashMap;
 
@@ -10,9 +11,7 @@ pub const HARD: f32 = 0.2;
 pub struct Game {
     pub board: Board,
     pub players: HashMap<PlayerId, Player>,
-    pub status: GameStatus,
-    pub turn_order: Vec<PlayerId>, // [1,3,5,4] where 1, 3, 5, 4 are player ids
-    pub current_turn: usize,       // index of turn_order
+    pub status: GameStatus
 }
 
 #[derive(PartialEq, Debug)]
@@ -34,8 +33,6 @@ impl Game {
             board: Board::new(h_size, v_size, difficulty),
             players: HashMap::new(),
             status: GameStatus::Continue,
-            turn_order: Vec::new(),
-            current_turn: 0,
         }
     }
     
@@ -49,15 +46,10 @@ impl Game {
     //     self.players.insert(player.id, player);
     // }
     pub fn add_player(self, player: Player) -> Game {
-        let mut new_turn_order = self.turn_order;
-        new_turn_order.push(player.id);
-
         Game {
             board: self.board,
             players: self.players.update(player.id, player),
             status: self.status, 
-            turn_order: new_turn_order,
-            current_turn: self.current_turn,
         }
     }
 
@@ -69,16 +61,11 @@ impl Game {
     //     .add_player(Player::new("william");
     pub fn add_player_by_name(self, player_name: &str) -> Game{
         let player = Player::new(player_name.to_string());
-        
-        let mut new_turn_order = self.turn_order;
-        new_turn_order.push(player.id);
 
         Game {
             board: self.board,
             players: self.players.update(player.id, player),
-            status: self.status, 
-            turn_order: new_turn_order,
-            current_turn: self.current_turn,
+            status: self.status,
         }
     }
 
@@ -86,32 +73,25 @@ impl Game {
         self.players.get(player_id).unwrap_or_else(|| panic!("no player with id: {player_id} found"))
     }
 
-    pub fn current_player(&self) -> &Player {
-        let id = self.turn_order[self.current_turn];
-        self.get_player(&id)
-    }
+    // pub fn current_player(&self) -> &Player {
+    //     let id = self.turn_order[self.current_turn];
+    //     self.get_player(&id)
+    // }
 
-    // Updates the game status based on the following logic
-    // If a mine is revealed, game over
-    // If not, then check whether all the non-mine tiles are revealed by calling check_win
-    //     If so, game win
-    //     If not, game continues
-    pub fn update_status(&self, player_action: &PlayerAction, board: &Board) -> (GameStatus, i32) {
-        let current_tile = board.get_tile(&player_action.coordinate);
-        
-        match current_tile {
-            TileStatus::Revealed(Tile::Mine) => (GameStatus::Over, -10),
-            TileStatus::Revealed(Tile::Hint(_)) => (GameStatus::Over, 1), //TODO: revealed more than 1 tile, 3
-            TileStatus::Flagged(_) => (GameStatus::Continue, 10),
-            _ => panic!("current_tile should not be hidden")
-            // _ => match self.check_win(board) {
-            //     true => (GameStatus::Over, 5), // Win
-            //     false => (GameStatus::Continue, 1),
-            // }
+    // TODO: reimplement game status update logic
+    pub fn update_status(board: &Board) -> GameStatus {
+        let game_over = board.iter().all(|(_, tile_status)| {
+            matches!(tile_status, TileStatus::Revealed(_)) || matches!(tile_status, TileStatus::Flagged(_))
+        });
+
+        println!("game over condition = {game_over}");
+
+        match game_over {
+            true => GameStatus::Over,
+            false => GameStatus::Continue,
         }
     }
 
-    // TODO: implement this
     pub fn get_winners(&self) -> Vec<&Player> {
         if self.players.is_empty() {
           return Vec::new();
@@ -139,20 +119,52 @@ impl Game {
         })
     }
 
+    fn calculate_points(player_action: &PlayerAction, board: &Board) -> i32 {
+        match player_action.action {
+            Action::Reveal => {
+                match board.get_tile(&player_action.coordinate) {
+                    TileStatus::Revealed(Tile::Hint(n)) => match n {
+                        0 => 3,
+                        _ => 1
+                    },
+                    TileStatus::Revealed(Tile::Mine) => -10,
+                    _ => 0 // panic!("tile should have been revealed!")
+                }
+            },
+            Action::Flag => {
+                if board.is_mine(&player_action.coordinate) {
+                    5
+                } else {
+                    -3
+                }
+            }
+        }
+    }
+
+    fn award_points(&self, player_action: &PlayerAction, points: i32) -> HashMap<PlayerId, Player> {
+        let updated_player = self.get_player(&player_action.player_id).add_points(points);
+        self.players.update(player_action.player_id, updated_player)
+
+    }
+
     // Updates board_map and GameStatus
     pub fn update(&self, player_action: &PlayerAction) -> Game {
+        // 1. update board
         let updated_board = self.board.update(player_action);
-        let (updated_status, points) = Game::update_status(self, player_action, &updated_board);
-        let current_player = self.get_player(&player_action.player_id);
 
-        let updated_players = self.players.update(player_action.player_id, current_player.add_points(points));
+        // 2. calculate points based on updated_board
+        let points = Self::calculate_points(player_action, &updated_board);
 
+        // 3. award points
+        let updated_players = self.award_points(player_action, points);
+        
+        // 4. update game status
+        let updated_status = Game::update_status(&updated_board);
+        
         Game {
             board: updated_board,
             players: updated_players,
             status: updated_status,
-            turn_order: self.turn_order.clone(),
-            current_turn: (self.current_turn + 1) % self.turn_order.len(),
         }
     }
 }

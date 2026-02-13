@@ -32,17 +32,12 @@ pub fn validate_board_size(h_size: u32, v_size: u32) -> Result<BoardSize, Invali
 
 // This function validates player's chosen action for the tile at the coordinate
 pub fn validate_action(game: &Game, player_action: PlayerAction, coordinate: &Coordinate) -> Result<PlayerAction, InvalidErr> {
-    if game.current_player().id == player_action.player_id {
-        let tile_status = game.board.get_tile(coordinate);
-        let (id, action) = (&player_action.player_id, player_action.action);
+    let tile_status = game.board.get_tile(coordinate);
+    let action = player_action.action;
 
-        match (tile_status, action) {
-            (TileStatus::Hidden, Action::Flag | Action::Reveal) => Ok(player_action),
-            // (TileStatus::Flagged(flagged_by), Action::Unflag) if id == flagged_by => Ok(player_action), // a flagged tile can only be unflagged by the same player
-            _ => Err(InvalidErr::InvalidAction),
-        }
-    } else {
-        Err(InvalidErr::InvalidPlayer)
+    match (tile_status, action) {
+        (TileStatus::Hidden, Action::Flag | Action::Reveal) => Ok(player_action),
+         _ => Err(InvalidErr::InvalidAction),
     }
 }
 

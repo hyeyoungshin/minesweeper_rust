@@ -1,4 +1,4 @@
-use crate::core::board::{Board, Coordinate};
+use crate::core::board::{BoardMap, Coordinate};
 
 use crate::core::player::{Player, Action, PlayerAction};
 use crate::core::validation::{InvalidErr, CoordinateErr};
