@@ -36,8 +36,8 @@ impl Player {
     }
 
     #[cfg(test)]
-    pub fn new_with_id(id: PlayerId, name: String) -> Self {
-        Player { id, name, points: 0 }
+    pub fn new_with_id(id: PlayerId, name: &str) -> Self {
+        Player { id, name: name.to_string(), points: 0 }
     }
 
     pub fn add_points(&self, points: i32) -> Self {

@@ -112,8 +112,19 @@ impl Game {
     }
 
     // TODO: implement this
-    pub fn winner(&self) -> &Player {
-        self.get_player(&1)
+    pub fn get_winners(&self) -> Vec<&Player> {
+        if self.players.is_empty() {
+          return Vec::new();
+        }
+        
+        let max_score = self.players.values()
+            .map(|p| p.points)
+            .max()
+            .unwrap();
+        
+        self.players.values()
+          .filter(|p| p.points == max_score)
+          .collect()
     }
 
     // Check the game winning condition
@@ -154,7 +165,7 @@ mod tests {
     #[test]
     fn add_player() {
         let mut game = Game::new(3, 3, Difficulty::Easy);
-        let player_1 = Player::new_with_id(1, "hyeyoung".to_string());
+        let player_1 = Player::new_with_id(1, "hyeyoung");
         // let updated_game = game.add_player(player_1);
         game = game.add_player(player_1);
 
@@ -164,11 +175,45 @@ mod tests {
     #[test]
     fn add_players() {
         let mut game = Game::new(3, 3, Difficulty::Easy);
-        let player_1 = Player::new_with_id(1, "hyeyoung".to_string());
-        let player_2= Player::new_with_id(2,"charlie".to_string());
+        let player_1 = Player::new_with_id(1, "hyeyoung");
+        let player_2= Player::new_with_id(2,"charlie");
         game = game.add_player(player_1);
         game = game.add_player(player_2);
 
         assert_eq!(game.get_player(&2).id, 2);
+    }
+
+    #[test]
+    fn get_winner() {
+        let game = Game::new(3, 3, Difficulty::Easy);
+        let player_1 = Player::new_with_id(1, "hyeyoung");
+        let player_2 = Player::new_with_id(2, "charlie");
+        let player_3 = Player::new_with_id(3, "william");
+        let up1 = player_1.add_points(-1);
+        let up2 = player_2.add_points(30);
+        let up3 = player_3.add_points(25);
+        let ugame = game.add_player(up1).add_player(up2).add_player(up3);
+
+        assert_eq!(ugame.get_winners().len(), 1);
+    }
+
+    #[test]
+    fn get_winners() {
+        let game = Game::new(3, 3, Difficulty::Easy);
+        let player_1 = Player::new_with_id(1, "hyeyoung");
+        let player_2 = Player::new_with_id(2, "charlie");
+        let player_3 = Player::new_with_id(3, "william");
+        let player_4 = Player::new_with_id(4, "michael");
+        let up1 = player_1.add_points(-1);
+        let up2 = player_2.add_points(30); // winner
+        let up3 = player_3.add_points(25);
+        let up4 = player_4.add_points(30); // winner
+        let ugame = game
+          .add_player(up1)
+          .add_player(up2)
+          .add_player(up3)
+          .add_player(up4);
+
+        assert_eq!(ugame.get_winners().len(), 2);
     }
 }

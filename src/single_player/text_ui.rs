@@ -67,7 +67,7 @@ pub fn end_game(game: &Game) {
     //     GameStatus::Over => println!("You lost..."),
     //     _ => {panic!("should not be here");}
     // }
-    println!("{} has won!", game.winner().name);
+    println!("{:?} has won!", game.get_winners());
     
 } 
 

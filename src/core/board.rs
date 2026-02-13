@@ -178,7 +178,7 @@ impl Board {
             None => board_map,
             Some(coord) => {
                 let updated_board_map = self.reveal(&coord, board_map);
-                self.reveal_all(hidden_neighbors,updated_board_map)  // O(1) allocations
+                self.reveal_all(hidden_neighbors, updated_board_map)  // O(1) allocations
             }
             // Vec is owned by this function call---not shared with anyone else
             // It gets consumed and destroyed when the function returns
