@@ -25,6 +25,9 @@ pub fn simulate_turn_based() -> io::Result<()> {
 
             game = game.update(&action);
             game.board.print();
+            if game.status == GameStatus::Over {
+                break;
+            }
         }
     }
 
