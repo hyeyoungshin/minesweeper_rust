@@ -1,6 +1,5 @@
 use crate::core::player::{Player, PlayerId, PlayerAction, Action};
-use crate::core::board::{Board, Tile, TileStatus, Coordinate};
-use crate::core::board::*;
+use crate::core::board::{Board, Tile, TileStatus};
 
 use im::HashMap;
 
@@ -84,8 +83,6 @@ impl Game {
             matches!(tile_status, TileStatus::Revealed(_)) || matches!(tile_status, TileStatus::Flagged(_))
         });
 
-        println!("game over condition = {game_over}");
-
         match game_over {
             true => GameStatus::Over,
             false => GameStatus::Continue,
@@ -107,18 +104,6 @@ impl Game {
           .collect()
     }
 
-    // Check the game winning condition
-    // Win condition:
-    // - All tiles that don't contain mines have been revealed
-    // - You can leave mines unflagged and still win
-    // Lose condition:
-    // - You reveal a tile with a mine (game over)
-    fn check_win(&self, board: &Board) -> bool {
-        board.iter().all(|(coordinate, tile_status)| {
-            board.is_mine(coordinate) || matches!(tile_status, TileStatus::Revealed(Tile::Hint(_)))
-        })
-    }
-
     fn calculate_points(player_action: &PlayerAction, board: &Board) -> i32 {
         match player_action.action {
             Action::Reveal => {
@@ -133,9 +118,9 @@ impl Game {
             },
             Action::Flag => {
                 if board.is_mine(&player_action.coordinate) {
-                    5
+                    2
                 } else {
-                    -3
+                    -1
                 }
             }
         }

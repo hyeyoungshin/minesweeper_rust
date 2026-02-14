@@ -79,6 +79,10 @@ impl Board {
         board_map
     }
 
+    pub fn num_mines(&self) -> u32 {
+        self.mine_coordinates.len() as u32
+    }
+
     pub fn get_tile(&self, coordinate: &Coordinate) -> &TileStatus {
         // order of evaluation: call-by-value (like most programming languages but Haskell)
         // instead of unwrap() or expect() use unwrap_or_else to
@@ -223,23 +227,19 @@ impl Board {
         }
     }    
 
-    // // Boolean helper for internal use / assertions
-    // fn is_valid_coordinate(&self, coord: &Coordinate) -> bool {
-    //     self.validate_coordinate(coord).is_ok()
-    // }
-
     pub fn print(&self) {
         for y in 0..self.v_size {
             for x in 0..self.h_size {
                 match self.board_map.get(&Coordinate{ x, y }).unwrap() {
-                    TileStatus::Hidden => print!("? "),
+                    TileStatus::Hidden => print!("?      "),
                     TileStatus::Flagged(player_id) => print!("!,by {} ", player_id),
-                    TileStatus::Revealed(Tile::Hint(n)) => print!("{} ", n),
-                    TileStatus::Revealed(Tile::Mine) => print!("* ")
+                    TileStatus::Revealed(Tile::Hint(n)) => print!("{n}      "),
+                    TileStatus::Revealed(Tile::Mine) => print!("*      ")
                 }
             }
             println!();
         }
+        println!();
     }
 }
 

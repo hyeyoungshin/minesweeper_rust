@@ -56,20 +56,27 @@ impl fmt::Display for CoordinateErr {
 }
 
 // Prints the welcome message
-pub fn start_game() {
-    println!("Let's play minesweeper game!");
+pub fn start_game(game: &Game) {
+    println!("Let's play minesweeper game!\n");
+
+    game.board.print();
+    println!("number of mines: {}\n", game.board.num_mines());
+}
+
+pub fn print_scores(game: &Game) {
+    game.players.values()
+      .for_each(|player| println!("{}: {}", player.name, player.points));
+    
+    println!();
 }
 
 // Prints the end of game message
-pub fn end_game(game: &Game) {
-    // match game.status {
-    //     GameStatus::Win(winner_id) => println!("{:?} won!", game.get_player(&winner_id)),
-    //     GameStatus::Over => println!("You lost..."),
-    //     _ => {panic!("should not be here");}
-    // }
-    println!("{:?} has won!", game.get_winners());
-    
-} 
+pub fn announce_winners(game: &Game) {
+    game.get_winners().into_iter()
+      .for_each(|winner| print!("{} ", winner.name));
+
+    println!("won!");    
+}
 
 // Prompts a message to get a valid coordinate from player
 pub fn get_coordinate(game: &Game, player: &Player) -> io::Result<Coordinate> {

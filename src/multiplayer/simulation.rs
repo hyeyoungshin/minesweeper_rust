@@ -5,12 +5,13 @@ use crate::core::game::{Game, Difficulty};
 use crate::core::game::*;
 use crate::single_player::text_ui::*;
 
-pub fn simulate_turn_based() -> io::Result<()> {
-    start_game();
+pub fn simulate_multiplayer() -> io::Result<Game> {
     let mut game = Game::new(3, 3, Difficulty::Medium)
         .add_player(Player::new("hyeyoung".to_string()))
         .add_player(Player::new("charlie".to_string()))
         .add_player(Player::new("william".to_string()));
+    
+    start_game(&game);
     
     let players = game.players.clone();
     
@@ -25,12 +26,15 @@ pub fn simulate_turn_based() -> io::Result<()> {
 
             game = game.update(&action);
             game.board.print();
+            print_scores(&game);
+
             if game.status == GameStatus::Over {
                 break;
             }
         }
     }
 
-    end_game(&game);
-    Ok(())
+    announce_winners(&game);
+
+    Ok(game)
 }
