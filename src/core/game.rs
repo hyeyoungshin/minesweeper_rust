@@ -40,10 +40,6 @@ impl Game {
     //   "If a function consumes data to store it, take ownership."
     // When You WOULD Borrow:
     //   Only if the caller legitimately needs the player afterwards:
-    // pub fn add_player(&mut self, player: Player) {
-    //     self.turn_order.push(player.id);
-    //     self.players.insert(player.id, player);
-    // }
     pub fn add_player(self, player: Player) -> Game {
         Game {
             board: self.board,
