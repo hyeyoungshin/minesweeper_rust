@@ -1,9 +1,12 @@
 use std::io;
+use rand::Rng;
 
 use crate::core::player::Player;
 use crate::core::game::{Game, Difficulty};
 use crate::core::game::*;
 use crate::single_player::text_ui::*;
+
+        
 
 pub fn simulate_multiplayer() -> io::Result<Game> {
     let mut game = Game::new(3, 3, Difficulty::Medium)
@@ -13,25 +16,22 @@ pub fn simulate_multiplayer() -> io::Result<Game> {
     
     start_game(&game);
     
-    let players = game.players.clone();
+    let mut rng = rand::thread_rng();
     
     while game.status == GameStatus::Continue {
-        for id in players.keys() {
-            let current_player = game.get_player(&id);
+        let turn_id = rng.gen_range(1..game.players.len()+1) as u32;
+        let current_player = game.get_player(&turn_id);
 
-            let coordinate = get_coordinate(&game, current_player)?;
-            let action = get_action(&game, current_player, coordinate)?;
+        println!("{}'s turn", current_player.name);
 
-            println!("{}'s move: {:?} {:?}", current_player.name, action.action, coordinate);
+        let coordinate = get_coordinate(&game, current_player)?;
+        let action = get_action(&game, current_player, coordinate)?;
 
-            game = game.update(&action);
-            game.board.print();
-            print_scores(&game);
+        println!("{}'s move: {:?} {:?}", current_player.name, action.action, coordinate);
 
-            if game.status == GameStatus::Over {
-                break;
-            }
-        }
+        game = game.update(&action);
+        game.board.print();
+        print_scores(&game);
     }
 
     announce_winners(&game);
