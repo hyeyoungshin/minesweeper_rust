@@ -17,14 +17,14 @@ pub enum InvalidErr {
     InvalidAction,
     InvalidPlayer,
     InvalidCoordinate(CoordinateErr),
-    InvalidBoardSize,
+    InvalidSize,
 }
 
 pub const BOARD_MAX_SIZE: u32 = 30; // for single_player mode
 
 pub fn validate_board_size(h_size: u32, v_size: u32) -> Result<BoardSize, InvalidErr> {
     if h_size > BOARD_MAX_SIZE && v_size > BOARD_MAX_SIZE {
-        Err(InvalidErr::InvalidBoardSize)
+        Err(InvalidErr::InvalidSize)
     } else {
         Ok((h_size as u32, v_size as u32))
     }

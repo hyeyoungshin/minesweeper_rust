@@ -39,7 +39,7 @@ impl fmt::Display for InvalidErr {
         match self {
             InvalidErr::InvalidAction => write!(f, "Invalid action"),
             InvalidErr::InvalidPlayer => write!(f, "Invalid player"),
-            InvalidErr::InvalidBoardSize => write!(f, "Invalid board size"),
+            InvalidErr::InvalidSize => write!(f, "Invalid size"),
             InvalidErr::InvalidCoordinate(coordinate_err) => write!(f, "Invalid coordinate: {}", coordinate_err),
         }
     }
@@ -55,12 +55,30 @@ impl fmt::Display for CoordinateErr {
     }
 }
 
-// Prints the welcome message
-pub fn start_game(game: &Game) {
-    println!("Let's play minesweeper game!\n");
+// TODO: a lot of unwrapping happening here
+pub fn start_game() -> Game {
+    println!("Let's play minesweeper game!");
 
+    let num_players = get_num_players().unwrap();
+
+    let players: Vec<Player> = (0..num_players).into_iter()
+      .map(|_| Player::new(get_name()))
+      .collect();
+
+    let (h_size, v_size) = get_board_size().unwrap();
+    let game_level = get_difficulty().unwrap();
+
+    let mut game = Game::new(h_size, v_size, game_level);
+    
+    game = players.into_iter()
+      .fold(game,|game, player| {
+        game.add_player(player)
+      });
+    
     game.board.print();
+    
     println!("number of mines: {}\n", game.board.num_mines());
+    game
 }
 
 pub fn print_scores(game: &Game) {
@@ -161,6 +179,30 @@ pub fn parse_action(player_input: String) -> Result<Action, ParseErr> {
     }
 }
 
+const MAX_NUM_PLAYERS: u32 = 5;
+
+pub fn get_num_players() -> io::Result<u32> {
+    println!("How many players?");
+
+    loop {
+        let mut player_input = String::new();
+        io::stdin().read_line(&mut player_input)?;
+
+        let num_players = player_input.trim().parse::<u32>();
+
+        match num_players {
+            Ok(num_players) => if num_players > MAX_NUM_PLAYERS {
+                try_again!(InvalidErr::InvalidSize);
+            } else {
+                return Ok(num_players)
+            },
+            Err(_) => {
+                try_again!(ParseErr::ParsingFailed);
+            }
+        }
+    }
+}
+
 pub type BoardSize = (u32, u32);
 
 pub fn get_board_size() -> io::Result<BoardSize> {
@@ -188,7 +230,6 @@ pub fn get_board_size() -> io::Result<BoardSize> {
 
 pub fn parse_board_size(player_input: String) -> Result<BoardSize, ParseErr> {
     let chars: Vec<&str> = player_input.trim().split(',').collect();
-    println!("parsing board size to {:?}", chars);
 
     match chars.len() {
         2 => {
@@ -207,18 +248,19 @@ pub fn parse_board_size(player_input: String) -> Result<BoardSize, ParseErr> {
     }
 }
 
-pub fn get_name() -> io::Result<String> {
+pub fn get_name() -> String {
     println!("Enter your name");
 
     let mut player_input = String::new();
-    io::stdin().read_line(&mut player_input)?;
-    let player_input = player_input.trim().to_string();
+    io::stdin()
+        .read_line(&mut player_input)
+        .expect("Failed to read name");
     
-    return Ok(player_input)
+    player_input.trim().to_string()
 }
 
 pub fn get_difficulty() -> io::Result<Difficulty> {
-    println!("Enter the level of difficulty: Easy({}), Medium({}), Hard({})", EASY, MEDIUM, HARD);
+    println!("Enter the level of difficulty: Easy, Medium, or Hard");
 
     loop {
         let mut player_input = String::new();

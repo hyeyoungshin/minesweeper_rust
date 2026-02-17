@@ -1,20 +1,12 @@
 use std::io;
 use rand::Rng;
 
-use crate::core::player::Player;
-use crate::core::game::{Game, Difficulty};
+use crate::core::game::{Game};
 use crate::core::game::*;
 use crate::single_player::text_ui::*;
 
-        
-
 pub fn simulate_multiplayer() -> io::Result<Game> {
-    let mut game = Game::new(3, 3, Difficulty::Medium)
-        .add_player(Player::new("hyeyoung".to_string()))
-        .add_player(Player::new("charlie".to_string()))
-        .add_player(Player::new("william".to_string()));
-    
-    start_game(&game);
+    let mut game = start_game();
     
     let mut rng = rand::thread_rng();
     

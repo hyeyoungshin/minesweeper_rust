@@ -1,23 +1,24 @@
 use crate::core::game::{Game, GameStatus};
-use crate::core::player::{Player};
 use crate::single_player::text_ui::*;
 
 use std::io;
 
 pub fn simulate_single_player() -> io::Result<Game> {
-    println!("Let's player minesweeper game!");
+    // println!("Let's play minesweeper game!");
 
-    let single_player = Player::new(get_name()?);
+    // let single_player = Player::new(get_name());
 
-    let (h_size, v_size) = get_board_size()?;
-    // TODO: validate input here too
-    let game_level = get_difficulty()?;
+    // let (h_size, v_size) = get_board_size()?;
+    // // TODO: validate input here too
+    // let game_level = get_difficulty()?;
 
-    let mut game = Game::new(h_size, v_size, game_level);
+    // let mut game = Game::new(h_size, v_size, game_level);
     
-    game = game.add_player(single_player);
+    // game = game.add_player(single_player);
 
-    game.board.print();
+    // game.board.print();
+
+    let mut game = start_game();
     
     ////////// interactive game loop //////////
     while game.status == GameStatus::Continue {
