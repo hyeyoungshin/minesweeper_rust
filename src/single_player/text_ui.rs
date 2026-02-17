@@ -1,11 +1,11 @@
-use crate::core::board::{BoardMap, Coordinate};
+use crate::core::board::{Coordinate};
 
 use crate::core::player::{Player, Action, PlayerAction};
 use crate::core::validation::{InvalidErr, CoordinateErr};
 use crate::core::validation::*;
 
 use crate::core::game::*;
-use crate::core::game::{Game, GameStatus, Difficulty};
+use crate::core::game::{Game, Difficulty};
 
 use std::io;
 use std::fmt;
@@ -19,7 +19,7 @@ macro_rules! try_again {
 
 #[derive(Debug)]
 pub enum ParseErr {
-    BadFormat,
+    ParsingFailed,
     NotNum,
     NegativeNum,
 }
@@ -27,7 +27,7 @@ pub enum ParseErr {
 impl fmt::Display for ParseErr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ParseErr::BadFormat => write!(f, "Expected exactly two comma-separated positive number"),
+            ParseErr::ParsingFailed => write!(f, "Failed parsing input"),
             ParseErr::NotNum => write!(f, "Not a number"),
             ParseErr::NegativeNum => write!(f, "Negative number"),
         }
@@ -113,9 +113,9 @@ pub fn parse_coordinate(player_input: &String) -> Result<Coordinate, ParseErr> {
     match chars.len() {
         2 => {
             let x = chars[0].parse::<i32>()
-                .map_err(|_| ParseErr::NotNum)?;
+                .map_err(|_| ParseErr::ParsingFailed)?;
             let y = chars[1].parse::<i32>()
-                .map_err(|_| ParseErr::NotNum)?;
+                .map_err(|_| ParseErr::ParsingFailed)?;
 
             if x >= 0 && y >= 0 {
                 Ok(Coordinate{ x: x as u32, y: y as u32 })
@@ -123,12 +123,12 @@ pub fn parse_coordinate(player_input: &String) -> Result<Coordinate, ParseErr> {
                 Err(ParseErr::NegativeNum)
             }
         },
-        _ => Err(ParseErr::BadFormat)
+        _ => Err(ParseErr::ParsingFailed)
     }
 }
 
 pub fn get_action(game: &Game, player: &Player, coordinate: Coordinate) -> io::Result<PlayerAction> {
-    println!("Enter an action: Flag, Unflag, or Reveal");
+    println!("Enter an action: Flag or Reveal");
 
     loop {
         let mut player_input = String::new();
@@ -157,14 +157,14 @@ pub fn parse_action(player_input: String) -> Result<Action, ParseErr> {
         "Reveal" => Ok(Action::Reveal),
         "Flag" => Ok(Action::Flag),
         // "Unflag" => Ok(Action::Unflag),
-        _ => Err(ParseErr::BadFormat)
+        _ => Err(ParseErr::ParsingFailed)
     }
 }
 
 pub type BoardSize = (u32, u32);
 
 pub fn get_board_size() -> io::Result<BoardSize> {
-    println!("Enter your board size: h_size, v_size");
+    println!("Enter your board size: n,n");
 
     loop {
         let mut player_input = String::new();
@@ -188,6 +188,7 @@ pub fn get_board_size() -> io::Result<BoardSize> {
 
 pub fn parse_board_size(player_input: String) -> Result<BoardSize, ParseErr> {
     let chars: Vec<&str> = player_input.trim().split(',').collect();
+    println!("parsing board size to {:?}", chars);
 
     match chars.len() {
         2 => {
@@ -202,7 +203,7 @@ pub fn parse_board_size(player_input: String) -> Result<BoardSize, ParseErr> {
                 Err(ParseErr::NegativeNum)
             }
         },
-        _ => Err(ParseErr::BadFormat)
+        _ => Err(ParseErr::ParsingFailed)
     }
 }
 
@@ -237,6 +238,6 @@ pub fn parse_difficulty(player_input: String) -> Result<Difficulty, ParseErr> {
         "Easy" => Ok(Difficulty::Easy),
         "Medium" => Ok(Difficulty::Medium),
         "Hard" => Ok(Difficulty::Hard),
-        _ => Err(ParseErr::BadFormat)
+        _ => Err(ParseErr::ParsingFailed)
     }
 }
