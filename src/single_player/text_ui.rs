@@ -1,11 +1,8 @@
 use crate::core::board::{Coordinate};
-
+use crate::core::game::{Game, Difficulty};
 use crate::core::player::{Player, Action, PlayerAction};
 use crate::core::validation::{InvalidErr, CoordinateErr};
 use crate::core::validation::*;
-
-use crate::core::game::*;
-use crate::core::game::{Game, Difficulty};
 
 use std::io;
 use std::fmt;
